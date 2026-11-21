@@ -80,6 +80,7 @@ const write = (key, value) => {
 };
 const treeRaw = ['A','B','C','D','E','F','G'];
 const sampleTree = ['A','B','C','D','E',null,'F'];
+const huffmanExampleWeights = 'A:28, B:10, C:11, D:7, E:4';
 const topics = [
     {
         id:'ch06-basics', title:'树与二叉树的性质', short:'基本概念', icon:'tree', tone:'', blurb:'认识结点、层次和常见树形。', lead:'从父子关系读懂层次结构，再区分完全、完美与满二叉树。',
@@ -112,7 +113,7 @@ const topics = [
     },
     {
         id:'ch06-huffman', title:'Huffman 树与编码', short:'Huffman 编码', icon:'bits', tone:'plum', blurb:'从频数表得到前缀编码。', lead:'每轮合并当前最轻的两棵树，用树上路径得到可逐位解码的码字。',
-        body:`<h2>构造与编码</h2><ul><li>把每个符号的频数写在其叶结点上，形成候选森林。</li><li>反复取权重最小的两棵树。合并后的新根权重为两者之和，新树放回候选集合。</li><li>左边记 0，右边记 1。读根到叶的路径得到码字。解码每到一个叶子就输出符号并回根。</li></ul><p>符号全部位于叶子，保证任一码字不会成为另一码字的前缀。使用最小堆维护 k 棵候选树，构造复杂度为 O(k log k)。</p><hr><h2>计算有效码流位数</h2><p><code>WPL = Σ(频数 × 码长)</code>，也等于各轮合并权重之和。</p><div class="example"><strong>2022 A 卷的频数</strong><p><code>1:28, 2:10, 7:11, 8:7, 9:4</code>。四次合并权重为 11、21、32、60，WPL 为 124。60 个 4 字节整数编码前需 1920 bit，编码后有效码流为 124 bit。</p></div>`,
+        body:`<h2>构造与编码</h2><ul><li>把每个符号的频数写在其叶结点上，形成候选森林。</li><li>反复取权重最小的两棵树。合并后的新根权重为两者之和，新树放回候选集合。</li><li>左边记 0，右边记 1。读根到叶的路径得到码字。解码每到一个叶子就输出符号并回根。</li></ul><p>符号全部位于叶子，保证任一码字不会成为另一码字的前缀。使用最小堆维护 k 棵候选树，构造复杂度为 O(k log k)。</p><hr><h2>计算有效码流位数</h2><p><code>WPL = Σ(频数 × 码长)</code>，也等于各轮合并权重之和。</p><div class="example"><strong>2022 A 卷频数（用字母表示符号）</strong><p><code>${huffmanExampleWeights}</code>，其中 <code>E:4</code> 表示 E 出现 4 次。四次合并权重为 11、21、32、60，WPL 为 124。原题的 60 个 4 字节整数编码前需要 1920 bit，编码后有效码流为 124 bit。</p></div>`,
         note:'同权时可以选择不同的合并顺序，码字会变，最优总代价相同。实际存文件时还需要能恢复码表的信息。', demos:['huffman']
     },
     {
@@ -421,7 +422,7 @@ function heap(data) {
 }
 
 const huffmanConfig = {
-    title:'设置符号与频数',default:{weights:'1:28, 2:10, 7:11, 8:7, 9:4'},
+    title:'设置符号与频数',default:{weights:huffmanExampleWeights},
     fields:[['weights','符号:频数']],
     help:'用逗号或空格分隔，例如 A:5, B:3。允许 1–7 个互异符号，频数为 1–9999。',
     presets:[['2022 A 卷频数',{}],['等权频数',{weights:'A:2, B:2, C:2, D:2'}],['单符号',{weights:'A:6'}]],
