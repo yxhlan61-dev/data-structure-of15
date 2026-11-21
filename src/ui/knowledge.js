@@ -4,6 +4,10 @@ import { byId, demoHref, icon } from './dom.js';
 import { drawTree } from './tree.js';
 
 const treeRaw = ['A','B','C','D','E','F','G'];
+const terminologyTree = {
+    nodes: treeRaw.map(label=>({id:label, label})),
+    edges: ['AB','AC','AD','BE','BF','CG'].map(([from,to])=>({from,to,slot:'general'})),
+};
 
 function heroArt() {
     const points = [[224,39],[142,103],[306,103],[86,176],[175,176],[272,176],[363,176]];
@@ -21,15 +25,17 @@ function heroArt() {
 export function renderShell(chapter, route, learned) {
     const { number, title, topics, demos: demoInfo } = chapter;
     const onLab = route.kind === 'lab' || route.kind === 'demo';
+    const onCode = route.kind === 'code';
+    const section = onLab ? ['#lab', '算法可视化'] : onCode ? ['#code', '重点代码整理'] : ['#knowledge', '基础知识库'];
     const nav = (href, name, symbol, active) => `<a href="${href}" class="nav-link${active?' current':''}" ${active?'aria-current="page"':''}>${icon(symbol)}<span>${name}</span></a>`;
     byId('sidebar').innerHTML = `<a class="brand" href="#knowledge"><span class="brand-icon">${icon('tree')}</span><span><b>数据结构复习平台</b><small>期末复习工作台</small></span></a>
-      <div class="side-label">学习空间</div><nav aria-label="学习空间">${nav('#knowledge','基础知识库','book',!onLab)}${nav('#lab','算法可视化','lab',onLab)}</nav>
+      <div class="side-label">学习空间</div><nav aria-label="学习空间">${nav('#knowledge','基础知识库','book',!onLab&&!onCode)}${nav('#lab','算法可视化','lab',onLab)}${nav('#code','重点代码整理','grid',onCode)}</nav>
       <div class="side-chapter"><div class="chapter-heading"><span class="chapter-index">${number}</span>${title}</div>
       <nav class="topics" aria-label="本章知识点">${topics.map(t=>`<a class="side-topic${route.id===t.id?' current':''}" ${route.id===t.id?'aria-current="page"':''} href="#${t.id}">${t.short}${learned.includes(t.id)?icon('check','tick'):''}</a>`).join('')}</nav></div>
       <div class="rail-foot"><div class="rail-foot-line"><span>本章进度</span><span>${learned.length} / ${topics.length}</span></div><div class="progress-track" role="progressbar" aria-label="本章进度" aria-valuenow="${learned.length}" aria-valuemax="${topics.length}"><i style="width:${learned.length/topics.length*100}%"></i></div><small>学习进度保存在此浏览器</small></div>`;
     const breadcrumb = route.kind === 'topic' ? topics.find(t=>t.id===route.id).title :
         route.kind === 'demo' ? demoInfo.find(d=>d.id===route.id).title : title;
-    byId('crumbs').innerHTML = `<button class="icon-btn menu-btn" data-action="menu" aria-label="打开章节导航" aria-controls="sidebar" aria-expanded="false">${icon('menu')}</button><a href="${onLab?'#lab':'#knowledge'}">${onLab?'算法可视化':'基础知识库'}</a>${icon('chev')}<strong>${breadcrumb}</strong>`;
+    byId('crumbs').innerHTML = `<button class="icon-btn menu-btn" data-action="menu" aria-label="打开章节导航" aria-controls="sidebar" aria-expanded="false">${icon('menu')}</button><a href="${section[0]}">${section[1]}</a>${icon('chev')}<strong>${breadcrumb}</strong>`;
     const dark = document.documentElement.dataset.theme==='dark';
     byId('bar-actions').innerHTML = `<button class="search-trigger" data-action="search" aria-label="搜索知识点与算法">${icon('search')}<span>搜索知识点</span><kbd>Ctrl K</kbd></button><button class="icon-btn" data-action="theme" aria-label="${dark?'切换浅色主题':'切换深色主题'}" title="${dark?'浅色主题':'深色主题'}">${icon(dark?'sun':'moon')}</button>`;
 }
@@ -51,7 +57,7 @@ export function topicPage(chapter, id, learned) {
     const done=learned.includes(id);
     return `<div class="title-row"><div><div class="eyebrow">第 ${number} 章 · ${topic.short}</div><h1>${topic.title}</h1><p>${topic.lead}</p></div><button class="${done?'secondary':'primary'}" data-action="learn" aria-pressed="${done}">${icon('check')}${done?'已复习':'标记为已复习'}</button></div>
       <div class="learn-grid"><article class="panel article">${topic.body}</article><aside class="learn-aside">
-      ${i<3?`<div class="panel note"><h2>结构示意</h2>${drawTree(arrayGraph(sampleTree))}<p>示例树的 C 没有左孩子，有右孩子 F。</p></div>`:''}
+      ${id==='ch06-basics'?`<div class="panel note"><h2>术语示意树</h2>${drawTree(terminologyTree)}<p>根 A 有三个孩子。沿 A → C → G 走两条边到达叶结点 G。</p></div>`:i<3?`<div class="panel note"><h2>结构示意</h2>${drawTree(arrayGraph(sampleTree))}<p>示例树的 C 没有左孩子，有右孩子 F。</p></div>`:''}
       <div class="panel note tinted"><h2>易错点</h2><p>${topic.note}</p></div><div class="panel note"><h2>相关算法实验</h2>${topic.demos.map(id=>`<a class="secondary" href="${demoHref(id)}">${icon('play')}${demoInfo.find(d=>d.id===id).title}</a>`).join('')}</div></aside></div>
       <nav class="pager" aria-label="章节切换">${i>0?`<a class="secondary" href="#${topics[i-1].id}">上一节 · ${topics[i-1].short}</a>`:'<a class="secondary" href="#knowledge">章节总览</a>'}${i<topics.length-1?`<a class="secondary" href="#${topics[i+1].id}">下一节 · ${topics[i+1].short}</a>`:'<a class="secondary" href="#lab">进入算法可视化</a>'}</nav>`;
 }

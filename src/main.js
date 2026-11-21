@@ -5,6 +5,7 @@ import { chapterPage, renderShell, topicPage } from './ui/knowledge.js';
 import { labIndex } from './ui/lab-index.js';
 import { applyLab, closeLab, handleLabAction, openLab, setLabSpeed } from './ui/lab-player.js';
 import { fillSearch, openSearch } from './ui/search.js';
+import { codePage } from './ui/code-page.js';
 
 const { topics, demos: demoInfo } = chapter;
 let route = { kind: 'chapter' };
@@ -16,6 +17,7 @@ document.documentElement.dataset.theme = read('theme','light') === 'dark' ? 'dar
 function routeOf() {
     const key=location.hash.slice(1);
     if (key==='lab') return {kind:'lab'};
+    if (key==='code') return {kind:'code'};
     if(key.startsWith('lab/')&&demoInfo.some(d=>d.id===key.slice(4))) return {kind:'demo',id:key.slice(4)};
     if(topics.some(t=>t.id===key)) return {kind:'topic',id:key};
     return {kind:'chapter'};
@@ -24,13 +26,15 @@ function renderRoute({scroll=true}={}) {
     closeLab();
     route=routeOf();
     document.title = route.kind==='topic' ? `${topics.find(t=>t.id===route.id).title} · 数据结构复习平台` :
-        route.kind==='demo' ? `${demoInfo.find(d=>d.id===route.id).title} · 数据结构复习平台` : chapter.title + ' · 数据结构复习平台';
+        route.kind==='demo' ? `${demoInfo.find(d=>d.id===route.id).title} · 数据结构复习平台` :
+        route.kind==='code' ? '重点代码整理 · 数据结构复习平台' : chapter.title + ' · 数据结构复习平台';
     renderShell(chapter, route, learned);
     setSidebar(false);
     switch (route.kind) {
         case 'topic': byId('main').innerHTML=topicPage(chapter, route.id, learned); break;
         case 'lab': byId('main').innerHTML=labIndex(chapter); break;
         case 'demo': openLab(route.id, chapter); break;
+        case 'code': byId('main').innerHTML=codePage(chapter); break;
         default: byId('main').innerHTML=chapterPage(chapter, learned);
     }
     if(scroll) window.scrollTo(0,0);

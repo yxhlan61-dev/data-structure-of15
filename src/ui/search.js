@@ -1,13 +1,14 @@
 import { byId, demoHref } from './dom.js';
 
 function searchResults(chapter, q) {
-    const { topics, demos: demoInfo } = chapter;
+    const { topics, demos: demoInfo, code } = chapter;
     const s=q.trim().toLocaleLowerCase();
     const entries=[
-        ...topics.map(t=>({href:`#${t.id}`,title:t.title,desc:t.blurb,group:'知识库'})),
-        ...demoInfo.map(d=>({href:demoHref(d.id),title:d.title,desc:d.desc,group:'算法可视化'}))
+        ...topics.map(t=>({href:`#${t.id}`,title:t.title,desc:t.blurb,group:'知识库',terms:t.body.replace(/<[^>]*>/g,' ')})),
+        ...demoInfo.map(d=>({href:demoHref(d.id),title:d.title,desc:d.desc,group:'算法可视化'})),
+        {href:'#code',title:code.title,desc:code.description,group:'重点代码整理'}
     ];
-    return entries.filter(t=>`${t.title} ${t.desc} ${t.group}`.toLocaleLowerCase().includes(s));
+    return entries.filter(t=>`${t.title} ${t.desc} ${t.group} ${t.terms||''}`.toLocaleLowerCase().includes(s));
 }
 export function fillSearch(chapter) {
     const entries=searchResults(chapter, byId('search-input').value);
