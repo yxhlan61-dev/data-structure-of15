@@ -6,7 +6,7 @@ export const huffmanConfig = {
     title:'设置符号与频数',default:{weights:huffmanExampleWeights},
     fields:[['weights','符号:频数']],
     help:'用逗号或空格分隔，例如 A:5, B:3。允许 1–7 个互异符号，频数为 1–9999。',
-    presets:[['2022 A 卷频数',{}],['等权频数',{weights:'A:2, B:2, C:2, D:2'}],['单符号',{weights:'A:6'}]],
+    presets:[['2022 A 卷频数',{}]],
     stage:'候选树与合并'
 };
 export function huffman(data) {
