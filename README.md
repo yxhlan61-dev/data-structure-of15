@@ -50,6 +50,6 @@ npm run build
 
 ## 生产发布
 
-生产由 Cloudflare Worker `data-structure-of15` 承载，两域名绑定同一 production 环境。Workers Builds 监听 GitHub main；构建命令 `node scripts/build-pages.mjs`，静态输出目录 `dist`。保持既有承载服务，不迁移到 Pages。
+生产由 Cloudflare Worker `data-structure-of15` 承载，两域名绑定同一 production 环境。Workers Builds 监听 GitHub main。仓库提供构建命令 `node scripts/build-pages.mjs`，静态输出目录 `dist`；当前远程自动流程可直接上线源资源，但没有生成版本清单，因此本次另从相同提交的干净工作区构建并发布 `dist`。后续发布也应核对清单，必要时补发构建产物。保持既有承载服务，不迁移到 Pages。
 
-构建生成 `dist/revision.json`，包含构建时 Git 提交及所有静态文件 SHA-256。发布后须核对 GitHub 对应提交的 Workers Builds 检查、Cloudflare 最新部署/版本、两域名的 HTTPS 和 revision，以及各资源哈希。可运行 `python scripts/verify-production.py` 检查当前提交对应的两个生产域名与全资源哈希。先提交再重新构建；未提交工作区构建的 revision 仅代表 HEAD，不能据此证明未提交文件已发布。
+构建生成 `dist/revision.json`，包含构建时 Git 提交及所有静态文件 SHA-256。发布后须核对 GitHub 对应提交的 Workers Builds 检查、Cloudflare 最新部署/版本、两域名的 HTTPS 和 revision，以及各资源哈希。可运行 `python scripts/verify-production.py` 检查当前提交对应的两个生产域名与全资源哈希；首页只剔除 Cloudflare 已有的固定来源 Web Analytics 自动信标，其余内容逐字节核验。先提交再重新构建；未提交工作区构建的 revision 仅代表 HEAD，不能据此证明未提交文件已发布。

@@ -2,7 +2,9 @@
 import concurrent.futures
 import hashlib
 import json
+import re
 import subprocess
+import time
 import urllib.request
 from pathlib import Path
 
@@ -15,9 +17,15 @@ def request(url, accept=None):
     headers = {'User-Agent': 'DS-Review-Release-Verification/1.0', 'Cache-Control': 'no-cache'}
     if accept:
         headers['Accept'] = accept
-    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as response:
-        assert response.status == 200, (url, response.status)
-        return response.read()
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=15) as response:
+                assert response.status == 200, (url, response.status)
+                return response.read()
+        except (OSError, urllib.error.URLError):
+            if attempt == 3:
+                raise
+            time.sleep(1)
 
 
 def verify(domain):
@@ -35,7 +43,11 @@ def verify(domain):
         # 以 Git blob 比较，排除 Windows 工作区 CRLF 与生产 LF 的差异。
         blob = subprocess.check_output(['git', 'show', 'HEAD:' + path], cwd=ROOT)
         assert hashlib.sha256(blob).hexdigest() == digest, (path, 'manifest differs from commit')
-        data = request(base + path + '?verify=' + COMMIT)
+        data = request(base + ('' if path == 'index.html' else path) + '?verify=' + COMMIT)
+        if path == 'index.html':
+            # Cloudflare 已有 Web Analytics 自动注入；只去除此固定来源的信标。
+            # 不忽略其他新增脚本/HTML 或任意内容差异。
+            data = re.sub(rb'<script\b[^>]*\bsrc="https://static\.cloudflareinsights\.com/beacon\.min\.js/[^"<>]+"[^>]*></script>\r?\n?', b'', data)
         assert hashlib.sha256(data).hexdigest() == digest, (domain, path, 'served content mismatch')
         return path
 
