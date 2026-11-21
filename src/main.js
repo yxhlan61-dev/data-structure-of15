@@ -18,6 +18,7 @@ function routeOf() {
     const key=location.hash.slice(1);
     if (key==='lab') return {kind:'lab'};
     if (key==='code') return {kind:'code'};
+    if (key==='code/heap') return {kind:'code',id:'heap'};
     if(key.startsWith('lab/')&&demoInfo.some(d=>d.id===key.slice(4))) return {kind:'demo',id:key.slice(4)};
     if(topics.some(t=>t.id===key)) return {kind:'topic',id:key};
     return {kind:'chapter'};
@@ -34,7 +35,7 @@ function renderRoute({scroll=true}={}) {
         case 'topic': byId('main').innerHTML=topicPage(chapter, route.id, learned); break;
         case 'lab': byId('main').innerHTML=labIndex(chapter); break;
         case 'demo': openLab(route.id, chapter); break;
-        case 'code': byId('main').innerHTML=codePage(chapter); break;
+        case 'code': byId('main').innerHTML=codePage(chapter, route.id); break;
         default: byId('main').innerHTML=chapterPage(chapter, learned);
     }
     if(scroll) window.scrollTo(0,0);

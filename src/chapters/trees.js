@@ -1,5 +1,6 @@
 import { huffmanExampleWeights } from '../demos/huffman.js';
 import { treeCode } from './tree-code.js';
+import { heapCode } from './heap-code.js';
 
 const topics = [
     {
@@ -89,7 +90,8 @@ const topics = [
         <tr><td>删除堆顶</td><td>保存堆顶，末项补根，缩小堆。最大堆下滤时优先选较大的孩子，最小堆选较小的孩子。只有左孩子时直接比较它。</td><td>O(log n)</td></tr>
         <tr><td>建堆</td><td>0 基数组从最后一个非叶下标 <code>⌊n/2⌋−1</code> 开始，向前对每个结点下滤。n&lt;2 时无需调整。</td><td>O(n)</td></tr></tbody></table>
         <p>自底向上建堆先保证当前结点的两棵子树分别满足堆序。层数越深的结点越多，但能下滤的距离越短。若用逐个插入建堆，最坏时间为 O(n log n)。</p>
-        <div class="example"><strong>手推最大堆</strong><p>在 <code>[10,5,8,4,1,3]</code> 中插入 12，先与下标 2 的 8 交换，再与根 10 交换，得到 <code>[12,5,10,4,1,3,8]</code>。若在原堆中删除 10，3 补根，再用 8 下滤，得到 <code>[8,5,3,4,1]</code>。</p></div>`,
+        <div class="example"><strong>手推最大堆</strong><p>在 <code>[10,5,8,4,1,3]</code> 中插入 12，先与下标 2 的 8 交换，再与根 10 交换，得到 <code>[12,5,10,4,1,3,8]</code>。若在原堆中删除 10，3 补根，再用 8 下滤，得到 <code>[8,5,3,4,1]</code>。</p></div>
+        <p><a class="secondary" href="#code/heap">练习手写最大堆维护</a></p>`,
         note:'下滤时先在左右孩子之间选较大值或较小值。若只有左孩子，直接用左孩子做比较。', demos:['heap']
     },
     {
@@ -133,4 +135,5 @@ export const treesChapter = {
     topics,
     demos: demoInfo,
     code: treeCode,
+    heapCode,
 };
