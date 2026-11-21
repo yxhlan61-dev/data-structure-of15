@@ -16,3 +16,26 @@ dialog{width:min(510px,calc(100% - 26px));padding:14px;border:1px solid var(--bo
 .paired-plots h3{font-size:14px;color:var(--sub);padding:5px 0}
 .paired-plots>div+div{border-left:1px solid var(--border)}
 .note .secondary,.pager .secondary{white-space:normal;text-align:center}
+
+/* 全课程导航和算法状态，沿用原有色彩与卡片。 */
+.chapter-picker {padding:16px 20px;border-top:1px solid var(--border);margin-top:16px;}
+.chapter-picker label {display:block;font-size:12px;margin-bottom:8px;}
+.chapter-picker select {width:100%;max-width:100%;padding:9px;border-radius:8px;background:var(--surface);color:inherit;border:1px solid var(--border);}
+.chapter-art {display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;}
+.chapter-art strong {font-size:100px;opacity:.5;line-height:1.2;}
+.algorithm-preview {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:100px;text-align:center;padding:8px;}
+.algorithm-preview .ico {width:26px;height:26px;}
+.algorithm-preview small {font-size:12px;}
+.trace-rows {display:grid;gap:12px;padding:12px;min-width:0;}
+.trace-row {min-width:0;overflow:auto;}
+.trace-row h3 {font-size:12px;font-weight:600;margin:0 0 6px;}
+.trace-row .array-view {justify-content:flex-start;flex-wrap:wrap;margin:0;padding-bottom:8px;}
+.trace-row .array-view span {min-width:38px;width:auto;padding:8px 9px;overflow-wrap:anywhere;}
+.network {width:100%;max-height:400px;color:var(--muted);}
+.network .edge-label {font-size:12px;fill:currentColor;paint-order:stroke;stroke:var(--surface);stroke-width:4px;}
+.side {overflow-y:auto;}
+.article table {display:block;overflow-x:auto;}
+.lab-tabs {flex-wrap:wrap;}
+@media(max-width:700px){.chapter-art strong{font-size:70px;}.trace-rows{padding:6px;}.trace-row .array-view span{min-width:28px;padding:6px;}.network{min-width:300px;}.stage-view{overflow-x:auto;}}
+
+.network .node{fill:var(--surface);stroke:var(--green);stroke-width:2px}.network .node.root{fill:var(--tint);stroke-width:4px}.network .letter{fill:var(--ink);text-anchor:middle;dominant-baseline:central;font-size:14px}.network .legend{fill:var(--muted);font-size:10px}.stage-view:has(.trace-rows){display:block;}

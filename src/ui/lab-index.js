@@ -5,6 +5,7 @@ import { demoHref, icon } from './dom.js';
 import { drawTree } from './tree.js';
 
 function demoThumbnail(d) {
+    if(!['heap','huffman','forest','rebuild','traversal'].includes(d.id)) return `<div class="algorithm-preview">${icon(d.icon||'lab')}<strong>${d.title}</strong><small>输入 → 单步推演 → 状态核对</small></div>`;
     if (d.id==='heap') return drawTree(arrayGraph([10,5,8,4,1]),{active:[0,2]},320);
     if (d.id==='huffman') return drawTree({nodes:[{id:0,label:8},{id:1,label:'A:3'},{id:2,label:'B:5'}],edges:[{from:0,to:1,slot:'left',label:'0'},{from:0,to:2,slot:'right',label:'1'}]},{active:[0]},300);
     if (d.id==='forest') return drawTree(forest(forestConfig.default).frames[0].graph,{active:['A','E']},320);

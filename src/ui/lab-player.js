@@ -1,6 +1,7 @@
 import { labs } from '../demos/index.js';
 import { byId, demoHref, esc, icon } from './dom.js';
 import { drawTree } from './tree.js';
+import { drawNetwork } from './network.js';
 
 let currentLab=null;
 let timer=null;
@@ -55,7 +56,9 @@ function updateFrame() {
     const {result,step}=currentLab;
     const frame=result.frames[step];
     const total=result.frames.length-1;
-    byId('stage-view').innerHTML=frame.forestGraph?
+    byId('stage-view').innerHTML=frame.rows?
+        `${frame.network?drawNetwork(frame.network,frame.active):frame.graph?drawTree(frame.graph,frame):''}<div class="trace-rows">${frame.rows.map(r=>`<section class="trace-row"><h3>${esc(r.label)}</h3>${arrayMarkup(r.values,r.active||[])}</section>`).join('')}</div>`:
+        frame.forestGraph?
         `<div class="paired-plots"><div><h3>原森林</h3>${drawTree(frame.graph,frame.primary,350)}</div><div><h3>二叉表示</h3>${drawTree(frame.forestGraph,frame.secondary,350)}</div></div>`:
         `${drawTree(frame.graph,frame,currentLab.id==='huffman'?650:550)}${frame.array?arrayMarkup(frame.array,frame.active):''}`;
     byId('step-count').textContent=`步骤 ${step} / ${total}`;

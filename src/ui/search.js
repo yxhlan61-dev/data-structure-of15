@@ -1,13 +1,12 @@
 import { byId, demoHref } from './dom.js';
+import { chapters, allTopics, allDemos } from '../chapters/course.js';
 
 function searchResults(chapter, q) {
-    const { topics, demos: demoInfo, code, heapCode } = chapter;
     const s=q.trim().toLocaleLowerCase();
     const entries=[
-        ...topics.map(t=>({href:`#${t.id}`,title:t.title,desc:t.blurb,group:'知识库',terms:t.body.replace(/<[^>]*>/g,' ')})),
-        ...demoInfo.map(d=>({href:demoHref(d.id),title:d.title,desc:d.desc,group:'算法可视化'})),
-        {href:'#code',title:code.title,desc:code.description,group:'重点代码整理'},
-        {href:'#code/heap',title:heapCode.title,desc:heapCode.description,group:'重点代码整理',terms:heapCode.steps.map(step=>step.title).join(' ')}
+        ...allTopics.map(t=>({href:`#${t.id}`,title:t.title,desc:t.blurb,group:'知识库',terms:t.body.replace(/<[^>]*>/g,' ')})),
+        ...allDemos.map(d=>({href:demoHref(d.id),title:d.title,desc:d.desc,group:'算法可视化'})),
+        ...chapters.flatMap(c=>(c.lessons||[{...c.code,id:'tree'},{...c.heapCode,id:'heap'}]).map(x=>({href:`#code/${c.number}/${x.id}`,title:x.title,desc:x.description,group:'重点代码整理',terms:x.steps.map(s=>s.title+' '+s.reasoning).join(' ')})))
     ];
     return entries.filter(t=>`${t.title} ${t.desc} ${t.group} ${t.terms||''}`.toLocaleLowerCase().includes(s));
 }

@@ -1,0 +1,9 @@
+{
+  "name": "data-structure-review",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-pages.mjs",
+    "test": "node scripts/check.mjs"
+  }
+}
