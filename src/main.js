@@ -18,6 +18,8 @@ document.documentElement.dataset.theme = read('theme','light') === 'dark' ? 'dar
 
 function routeOf() {
     const key=location.hash.slice(1);
+    const removed={complexity:'01',polynomial:'02',address:'05',sparse:'05',generalized:'05'};
+    if(key.startsWith('lab/')&&removed[key.slice(4)]) {chapter=chapters.find(c=>c.number===removed[key.slice(4)]);return {kind:'chapter'};}
     if(key==='mistakes') return {kind:'mistakes'};
     const ch=key.match(/^chapter\/(\d{2})(?:\/(lab|code))?$/);
     if(ch&&chapters.some(c=>c.number===ch[1])) { chapter=chapters.find(c=>c.number===ch[1]); return {kind:ch[2]||'chapter'}; }
@@ -34,6 +36,7 @@ function renderRoute({scroll=true}={}) {
     closeLab();
     if(byId('search-dialog').open) byId('search-dialog').close();
     route=routeOf();
+    if((route.kind==='lab'&&!chapter.demos.length)||(route.kind==='code'&&chapter.lessons?.length===0))route={kind:'chapter'};
     write('chapter',chapter.number);
     const {topics,demos:demoInfo}=chapter;
     document.title = route.kind==='topic' ? `${topics.find(t=>t.id===route.id).title} · 数据结构复习平台` :

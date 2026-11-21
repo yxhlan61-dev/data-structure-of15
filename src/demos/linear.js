@@ -1,14 +1,5 @@
 import { config, trace, row, numbers, integer, needs, graphOfList } from './course-shared.js';
 
-export const complexityConfig=config('选择计数模型',{n:'5',mode:'triangle'},[['n','规模 n'],['mode','模型',[['triangle','三角嵌套循环'],['doubling','倍增循环'],['recursion','递归求和']]]],'n 为 0..12。递归以 sum(0)=0 为基例。');
-export function complexity(d) {
-    const n=integer(d.n,0,12,'n'),t=trace(['初始化计数与状态','执行基本操作 / 进入调用','回退并返回结果']);let count=0;
-    t.mark('从零开始计数。',[row('计数',[0])]);
-    if(d.mode==='triangle')for(let i=1;i<=n;i++)for(let j=0;j<i;j++)t.mark(`i=${i}, j=${j}，第 ${++count} 次执行。`,[row('i / j / count',[i,j,count])],[count],1);
-    else if(d.mode==='doubling')for(let i=1;i<=n;i*=2)t.mark(`i=${i}≤${n}，计数后 i 乘 2。`,[row('i / count',[i,++count])],[count],1);
-    else {const stack=[];for(let i=n;i>=0;i--){stack.push(`sum(${i})`);t.mark(`进入 sum(${i})${i===0?'，命中基例':''}。`,[row('调用栈',stack)],[],1);}for(let i=0;i<=n;i++){stack.pop();count+=i;t.mark(`sum(${i}) 返回 ${count}。`,[row('调用栈',stack)],[count],2);}}
-    t.mark(`完成：${d.mode==='triangle'?`次数 n(n+1)/2=${count}`:d.mode==='doubling'?`次数 ${count}，n≥1 时为 floor(log₂n)+1`:`和为 ${count}，最大栈深 ${n+1}`}。`,[],[count],2);return t.finish();
-}
 export const listConfig=config('链表实验',{nodes:'3,4,5,5,5,6',mode:'unique',position:'0',value:'2'},[['nodes','数据序列'],['mode','操作',[['unique','双向循环表有序去重'],['insert','单链表按下标插入'],['delete','单链表按下标删除'],['reverse','单链表反转']]],['position','0 基操作位置'],['value','插入值']],'至多 12 项。去重要求非降序；图的箭头是实际 next/prev 链接。',[['空表',{nodes:'',mode:'reverse'}],['首项插入',{nodes:'3,4',mode:'insert'}],['尾项删除',{nodes:'1,2',mode:'delete',position:'1'}]]);
 export function list(d) {
     const a=numbers(d.nodes,12).map((value,i)=>({id:`N${i}`,value})),t=trace(['检查前置条件并定位','保存后继 / 临时指针','修改链接','继续扫描 / 返回']);
@@ -19,12 +10,25 @@ export function list(d) {
     else {const old=[...a],rev=[];while(old.length){const x=old.shift();rev.unshift(x);const network={nodes:[{id:'H',label:'head'},...a.map(x=>({id:x.id,label:x.value}))],edges:[...rev.slice(0,-1).map((x,i)=>({from:x.id,to:rev[i+1].id,label:'next'})),...old.slice(0,-1).map((x,i)=>({from:x.id,to:old[i+1].id,label:'next'}))],directed:true};t.mark(`保存 next=${old[0]?.id??'NULL'}；${x.id}.next 改指 prev=${rev[1]?.id??'NULL'}。`,[row('已反转段',rev.map(x=>x.value)),row('待处理段',old.map(x=>x.value))],rev.map(x=>x.value),2,{network});}a.splice(0,a.length,...rev);}
     mark('操作完成，检查链接与逻辑序列。',3);return t.finish();
 }
-function terms(s){const raw=String(s).trim();if(!raw)return [];const out=raw.split(/[,，]+/).map(x=>{const m=x.trim().match(/^([+-]?\d+)\s*:\s*(\d+)$/);needs(m,'项格式为 系数:指数，项间逗号分隔。');return [+m[1],+m[2]];});needs(out.length<=10&&out.every(([c,e],i)=>Math.abs(c)<=999&&c!==0&&e<=30&&(!i||out[i-1][1]<e)),'每表至多 10 项，非零系数 −999..999，指数 0..30 严格升序。');return out;}
-export const polynomialConfig=config('升幂多项式',{a:'2:0,3:2,-1:4',b:'-2:0,5:1,1:4'},[['a','多项式 A：系数:指数'],['b','多项式 B：系数:指数']],'指数严格升序，空输入为零多项式。',[['完全抵消',{a:'3:2',b:'-3:2'}],['一侧为空',{a:'',b:'1:0,2:3'}]]);
-export function polynomial(d){const a=terms(d.a),b=terms(d.b),t=trace(['初始化 pa / pb / tail','比较指数并输出较小项','同指数求和，非零才输出','连接余项并结束']),out=[];let i=0,j=0;const fmt=x=>x.map(([c,e])=>`${c}x^${e}`),mark=(s,line)=>t.mark(s,[row('A（当前项高亮）',fmt(a),[i]),row('B（当前项高亮）',fmt(b),[j]),row('结果链',fmt(out))],fmt(out),line);mark('从两表首项开始。',0);while(i<a.length||j<b.length){if(j===b.length||(i<a.length&&a[i][1]<b[j][1])){out.push(a[i++]);mark('A 指数更小，或 B 已空，复制 A 项并推进。',1);}else if(i===a.length||b[j][1]<a[i][1]){out.push(b[j++]);mark('B 指数更小，或 A 已空，复制 B 项并推进。',1);}else{const c=a[i][0]+b[j][0],e=a[i][1];i++;j++;if(c)out.push([c,e]);mark(`指数 ${e} 相同，系数和 ${c}${c?'，加入结果':'，抵消不输出'}；两指针均推进。`,2);}}mark('合并完成。',3);return t.finish();}
-
-export const queueConfig=config('循环队列',{capacity:'5',operations:'enq:1,enq:2,enq:3,enq:4,enq:5,deq,deq,enq:6,enq:7'},[['capacity','数组槽数（牺牲一格）'],['operations','操作：enq:值 / deq，逗号分隔']],'容量 2..12；至多 40 次操作，保留空/满失败步骤。',[['清空后再出队',{operations:'enq:1,deq,deq'}]]);
-export function queue(d){const m=integer(d.capacity,2,12,'槽数'),ops=d.operations.split(/[,，]/).map(x=>x.trim()).filter(Boolean),a=Array(m).fill('·'),t=trace(['初始化 front=rear=0','先判满再入队并 rear 回绕','先判空再出队并 front 回绕']);needs(ops.length<=40,'最多 40 次操作。');let f=0,r=0;const mark=(s,l)=>{const out=[];for(let i=f;i!==r;i=(i+1)%m)out.push(a[i]);t.mark(s,[row('物理槽位',a,[f,r]),row('front / rear / 长度',[f,r,(r-f+m)%m])],out,l);};mark('空队列。',0);for(const op of ops){if(op==='deq'){if(f===r)mark('出队失败：队列为空，状态不变。',2);else{const x=a[f];a[f]='·';f=(f+1)%m;mark(`出队 ${x}，front=(front+1)%${m}=${f}。`,2);}}else{needs(/^enq:[+-]?\d+$/.test(op),'操作须为 enq:整数 或 deq。');const x=integer(op.slice(4),-999,999,'入队值');if((r+1)%m===f)mark(`入队 ${x} 失败：下一写位与 front 相遇，队列已满。`,1);else{a[r]=x;r=(r+1)%m;mark(`入队 ${x}，rear 回绕后为 ${r}。`,1);}}}return t.finish();}
+export const queueConfig=config('循环队列',{capacity:'5',operations:'enq:1,enq:2,enq:3,enq:4,enq:5,enq:6,deq,deq,enq:6,enq:7'},[['capacity','数组槽数（全部可用）'],['operations','操作：enq:值 / deq，逗号分隔']],'front 指队头，rear 指最后一个已入队元素；count 区分空满。容量 1..12，至多 40 次操作。空队列时 rear 仅保留为下一次入队的参考位置。',[['填满全部槽位',{operations:'enq:1,enq:2,enq:3,enq:4,enq:5'}],['清空后再出队',{operations:'enq:1,deq,deq'}],['单槽回绕',{capacity:'1',operations:'enq:1,enq:2,deq,enq:3'}]]);
+export function queue(d) {
+    const m=integer(d.capacity,1,12,'槽数'),ops=d.operations.split(/[,，]/).map(x=>x.trim()).filter(Boolean),a=Array(m).fill('·');
+    const t=trace(['初始化 front=0、rear=m−1、count=0','count==m 时满；否则 rear=(rear+1)%m，写入，count++','count==0 时空；否则读取 front，front=(front+1)%m，count--']);
+    needs(ops.length<=40,'最多 40 次操作。');let f=0,r=m-1,count=0;
+    const mark=(s,l)=>t.mark(s,[row('物理槽位（高亮队头与队尾）',a,count?[f,r]:[]),row('front / rear / count',[f,r,count])],Array.from({length:count},(_,k)=>a[(f+k)%m]),l);
+    mark('空队列：count=0。rear 初始为 m−1，首次入队先推进到槽 0。',0);
+    for(const op of ops) {
+        if(op==='deq') {
+            if(count===0)mark('出队失败：count=0，队列为空，状态不变。',2);
+            else {const x=a[f];a[f]='·';f=(f+1)%m;count--;mark(`出队 ${x}，front=${f}，count=${count}${count===0?'，队列已空':''}。`,2);}
+        } else {
+            needs(/^enq:[+-]?\d+$/.test(op),'操作须为 enq:整数 或 deq。');const x=integer(op.slice(4),-999,999,'入队值');
+            if(count===m)mark(`入队 ${x} 失败：count=${m}，全部 ${m} 个槽位已占用。`,1);
+            else {r=(r+1)%m;a[r]=x;count++;mark(`rear 先推进到 ${r}，在该槽写入 ${x}；rear 指向队尾，count=${count}。`,1);}
+        }
+    }
+    return t.finish();
+}
 
 export const expressionConfig=config('表达式输入',{expression:'8-(3-2)*2'},[['expression','非负整数与二元 + - * /、括号']],'不支持一元符号，可写 (0-3)；整数除法向 0 截断，拒绝除零和非法语法。',[['左结合',{expression:'8-3-2'}],['多位数与整数除法',{expression:'(12+5)/3'}]]);
 export function expression(d){const s=d.expression;needs(s.length<=100&&s.trim(),'请输入 1..100 字符表达式。');const t=trace(['扫描一个数字并压入操作数栈','压入左括号 / 运算符','弹出右操作数 b 和左操作数 a，归约','结束时验证只剩一个值']),values=[],operators=[];let expect=true,i=0;const prec=c=>'+-'.includes(c)?1:'*/'.includes(c)?2:0,mark=(text,l)=>t.mark(text,[row('输入（下标为码元位置）',[...s],[i]),row('操作数栈（右为栈顶）',values),row('操作符栈（右为栈顶）',operators)],values,l),reduce=()=>{const op=operators.pop();needs(values.length>=2&&prec(op),'缺少操作数或括号不匹配。');const b=values.pop(),a=values.pop();needs(!(op==='/'&&b===0),'除数不能为 0。');const v=op==='+'?a+b:op==='-'?a-b:op==='*'?a*b:Math.trunc(a/b);needs(Number.isSafeInteger(v),'计算超出 JavaScript 安全整数范围。');values.push(v);mark(`先弹右 b=${b}，再弹左 a=${a}；${a} ${op} ${b} = ${v}。`,2);};mark('初始化两个空栈。',0);while(i<s.length){const c=s[i];if(/\s/.test(c)){i++;continue;}if(/\d/.test(c)){needs(expect,'两个操作数之间缺少运算符。');const m=s.slice(i).match(/^\d+/)[0],v=Number(m);needs(Number.isSafeInteger(v),'数字超出安全整数范围。');values.push(v);mark(`读取完整整数 ${v} 并入栈。`,0);i+=m.length;expect=false;continue;}if(c==='('){needs(expect,'左括号前缺少运算符。');operators.push(c);mark('左括号入栈。',1);}else if(c===')'){needs(!expect,'右括号前缺少操作数。');while(operators.length&&operators.at(-1)!=='(')reduce();needs(operators.at(-1)==='(','多余右括号。');operators.pop();mark('匹配并弹出左括号。',1);}else{needs(prec(c)&&!expect,'只支持非负整数和二元 + - * /；此处缺少操作数或字符非法。');while(operators.length&&operators.at(-1)!=='('&&prec(operators.at(-1))>=prec(c))reduce();operators.push(c);expect=true;mark(`运算符 ${c} 入栈。`,1);}i++;}needs(!expect,'表达式末尾缺少操作数。');while(operators.length){needs(operators.at(-1)!=='(','缺少右括号。');reduce();}needs(values.length===1,'表达式未归约为单一值。');mark('表达式求值完成。',3);return t.finish();}

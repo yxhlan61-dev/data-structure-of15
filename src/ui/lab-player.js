@@ -5,7 +5,7 @@ import { drawNetwork } from './network.js';
 
 let currentLab=null;
 let timer=null;
-let speed=1;
+let speed=0.5;
 const demoInputs=new Map();
 const selected=(a,b)=>a===b?' selected':'';
 
@@ -33,7 +33,7 @@ export function openLab(id, chapter) {
                 <button class="secondary" data-action="step-back" id="back-btn">上一步</button>
                 <button class="secondary" data-action="step-next" id="next-btn">下一步</button>
                 <button class="secondary" data-action="reset">${icon('reset')}重置</button>
-                <select id="speed" aria-label="播放速度">${[0.5,1,1.5,2].map(n=>`<option value="${n}"${selected(n,speed)}>${n}×</option>`).join('')}</select>
+                <select id="speed" aria-label="播放速度">${[0.5,1,1.5,2,4].map(n=>`<option value="${n}"${selected(n,speed)}>${n}×</option>`).join('')}</select>
               </div></div>
           </section>
           <div><section class="panel inspector"><div class="lab-inspect-head"><h2>伪代码与状态</h2></div><ol class="pseudo" id="algorithm-code"></ol>
@@ -57,7 +57,7 @@ function updateFrame() {
     const frame=result.frames[step];
     const total=result.frames.length-1;
     byId('stage-view').innerHTML=frame.rows?
-        `${frame.network?drawNetwork(frame.network,frame.active):frame.graph?drawTree(frame.graph,frame):''}<div class="trace-rows">${frame.rows.map(r=>`<section class="trace-row"><h3>${esc(r.label)}</h3>${arrayMarkup(r.values,r.active||[])}</section>`).join('')}</div>`:
+        `${frame.network?drawNetwork(frame.network,frame.active):frame.graph?drawTree(frame.graph,frame):''}<div class="trace-rows">${frame.rows.map(r=>`<section class="trace-row"><h3>${esc(r.label)}</h3>${arrayMarkup(r.values,r.active||[])}</section>`).join('')}${(frame.tables||[]).map(table=>`<section class="trace-table"><h3>${esc(table.title)}</h3><div class="trace-table-scroll"><table class="mini-table"><thead><tr>${table.heads.map(x=>`<th scope="col">${esc(x)}</th>`).join('')}</tr></thead><tbody>${table.rows.map(r=>`<tr>${r.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`).join('')}</div>`:
         frame.forestGraph?
         `<div class="paired-plots"><div><h3>原森林</h3>${drawTree(frame.graph,frame.primary,350)}</div><div><h3>二叉表示</h3>${drawTree(frame.forestGraph,frame.secondary,350)}</div></div>`:
         `${drawTree(frame.graph,frame,currentLab.id==='huffman'?650:550)}${frame.array?arrayMarkup(frame.array,frame.active):''}`;

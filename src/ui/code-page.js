@@ -8,9 +8,10 @@ function codeSections(code, exampleTitle) {
 }
 
 export function codePage(chapter, id) {
+    if(chapter.lessons?.length===0)return `<div class="title-row"><h1>${chapter.title}</h1></div><p>本章仅保留基础知识库。</p><a class="secondary" href="#chapter/${chapter.number}">返回知识库</a>`;
     if(chapter.lessons) {
         const lesson=chapter.lessons.find(x=>x.id===id)||chapter.lessons[0];
-        return `<div class="title-row"><div><div class="eyebrow">第 ${chapter.number} 章 · ${chapter.title}</div><h1>重点代码整理</h1><p>${lesson.description}</p></div></div><nav class="lab-tabs" aria-label="代码例题">${chapter.lessons.map(x=>`<a class="chip" href="#code/${chapter.number}/${x.id}" ${x===lesson?'aria-current="page"':''}>${x.title}</a>`).join('')}</nav><div class="learn-grid"><article class="panel article"><h2>${lesson.title}</h2><h3>公共声明</h3>${block(lesson.declarations)}${codeSections(lesson,'边界与手推')}</article><aside class="learn-aside"><div class="panel note tinted"><h2>复杂度</h2><p>${lesson.complexity}</p></div><div class="panel note"><h2>手写检查清单</h2><ul><li>先写函数签名、下标和空值约定。</li><li>判空满与边界后再读写。</li><li>检查循环是否严格推进。</li><li>动态结构维护入口并释放内存。</li><li>写明前提、时间与辅助空间。</li></ul><a class="secondary" href="#chapter/${chapter.number}/lab">关联算法实验</a></div></aside></div>`;
+        return `<div class="title-row"><div><div class="eyebrow">第 ${chapter.number} 章 · ${chapter.title}</div><h1>重点代码整理</h1><p>${lesson.description}</p></div></div><nav class="lab-tabs" aria-label="代码例题">${chapter.lessons.map(x=>`<a class="chip" href="#code/${chapter.number}/${x.id}" ${x===lesson?'aria-current="page"':''}>${x.title}</a>`).join('')}</nav><div class="learn-grid"><article class="panel article"><h2>${lesson.title}</h2><h3>公共声明</h3>${block(lesson.declarations)}${codeSections(lesson,'边界与手推')}</article><aside class="learn-aside"><div class="panel note tinted"><h2>复杂度</h2><p>${lesson.complexity}</p></div><div class="panel note"><h2>手写检查清单</h2><ul><li>先写函数签名、下标和空值约定。</li><li>判空满与边界后再读写。</li><li>检查循环是否严格推进。</li><li>动态结构维护入口并释放内存。</li><li>写明前提、时间与辅助空间。</li></ul>${chapter.demos.length?`<a class="secondary" href="#chapter/${chapter.number}/lab">关联算法实验</a>`:`<a class="secondary" href="#chapter/${chapter.number}">本章知识库</a>`}</div></aside></div>`;
     }
     return treeCodePage(chapter,id);
 }

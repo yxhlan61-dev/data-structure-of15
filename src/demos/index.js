@@ -8,6 +8,7 @@ import * as strings from './strings-arrays.js';
 import * as graphs from './graphs.js';
 import * as searching from './searching.js';
 import * as sorting from './sorting.js';
+import { criticalPath, criticalPathConfig } from './critical-path.js';
 
 export const labs = {
     traversal: { config: traversalConfig, run: traversal },
@@ -15,11 +16,12 @@ export const labs = {
     heap: { config: heapConfig, run: heap },
     huffman: { config: huffmanConfig, run: huffman },
     forest: { config: forestConfig, run: forest },
+    'critical-path': {config:criticalPathConfig,run:criticalPath},
 };
 for (const [id, source, fn] of [
-    ['complexity',linear,'complexity'],['list',linear,'list'],['polynomial',linear,'polynomial'],
+    ['list',linear,'list'],
     ['queue',linear,'queue'],['expression',linear,'expression'],['pascal',linear,'pascal'],
-    ['matching',strings,'matching'],['address',strings,'address'],['sparse',strings,'sparse'],['generalized',strings,'generalized'],
+    ['matching',strings,'matching'],
     ['graph-traversal',graphs,'graphTraversal'],['topological',graphs,'topological'],['dijkstra',graphs,'dijkstra'],['mst',graphs,'mst'],
     ['binary',searching,'binary'],['bst',searching,'bst'],['avl',searching,'avl'],['hash',searching,'hash'],
     ['sorting',sorting,'sorting'],['distribution',sorting,'distribution']

@@ -21,6 +21,8 @@ try {
         }
         for(const id of c.demos){
             await go('lab/'+id);await page.waitForSelector('#step-count');
+            assert.equal(await page.locator('#speed').inputValue(),'0.5');
+            assert.equal(await page.locator('#speed option[value="4"]').count(),1);
             const before=await page.locator('#stage-view').innerHTML();
             await page.locator('[data-action=step-next]').click();await page.locator('[data-action=step-back]').click();
             assert.equal(await page.locator('#stage-view').innerHTML(),before,id+' back');
@@ -28,6 +30,26 @@ try {
             await page.locator('[data-action=reset]').click();assert((await page.locator('#step-count').textContent()).startsWith('步骤 0 /'));routes++;
         }
     }
+    await go('chapter/05');
+    assert.equal(await page.locator('#sidebar a[href="#lab"],#sidebar a[href="#code"]').count(),0);
+    assert.equal(await page.locator('#main a[href*="/lab"],#main a[href*="/code"]').count(),0);
+    await go('code/05/address');assert.equal(await page.locator('h1').textContent(),'数组与广义表');
+    for(const id of ['complexity','polynomial','address','sparse','generalized']){await go('lab/'+id);assert.equal(await page.locator('#lab-form').count(),0);}
+    await go('lab/matching');assert((await page.locator('[name=mode]').textContent()).includes('BF（暴力匹配）'));
+    assert((await page.locator('[name=mode]').textContent()).includes('KMP（模式匹配'));
+    await go('lab/queue');for(let i=0;i<5;i++)await page.locator('[data-action=step-next]').click();
+    assert.deepEqual(await page.locator('#lab-output .token').allTextContents(),['1','2','3','4','5']);
+    assert(!(await page.locator('#step-text').textContent()).includes('失败'));
+    await go('lab/hash');assert.equal(await page.locator('[name=mode] option').count(),2);
+    assert(!/get|del/.test(await page.locator('[name=operations]').inputValue()));
+    await page.locator('[name=operations]').fill('get:1');await page.locator('#lab-form button[type=submit]').click();assert(await page.locator('#lab-error').isVisible());
+    await go('lab/critical-path');assert.equal(await page.locator('.trace-table').count(),2);
+    assert.equal(await page.locator('.trace-table').nth(1).locator('tbody tr').count(),10);
+    while(!await page.locator('[data-action=step-next]').isDisabled())await page.locator('[data-action=step-next]').click();
+    assert.equal(await page.locator('#lab-output .token').count(),4);
+    assert((await page.locator('#lab-output').textContent()).includes('总工期 10'));
+    if(process.env.SCREENSHOT_DIR)await page.screenshot({path:process.env.SCREENSHOT_DIR+'/ds-critical-path-desktop.png',fullPage:true});
+    await page.locator('#speed').selectOption('4');assert.equal(await page.locator('#speed').inputValue(),'4');
     await go('ch02-doubly');await page.locator('[data-action=learn]').click();await page.locator('[data-action=mistake]').click();await page.reload();
     assert.equal(await page.locator('[data-action=learn]').getAttribute('aria-pressed'),'true');
     await go('ch07-dijkstra');await page.locator('[data-action=learn]').click();await page.reload();

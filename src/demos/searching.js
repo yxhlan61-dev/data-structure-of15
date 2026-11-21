@@ -21,9 +21,30 @@ export function avl(d){const keys=numbers(d.nodes,12),t=trace(['按 BST 规则�
     function erase(n,key){if(!n)return null;if(key<n.key)n.left=erase(n.left,key);else if(key>n.key)n.right=erase(n.right,key);else{if(!n.left||!n.right)return n.left||n.right;let s=n.right;while(s.left)s=s.left;n.key=s.key;n.right=erase(n.right,s.key);}return balance(n);}
     mark('空 AVL 树。');for(const key of keys){root=insert(root,key);mark(`插入 ${key} 完成，检查所有 BF。`,4);}if(d.operation==='delete'){const key=integer(d.value,-999,999,'删除目标');root=erase(root,key);mark(`删除 ${key} 后，沿路径逐层修复完成。`,4);}const n=inorder(root).length;let cost=0;function sum(x,depth){if(x){cost+=depth;sum(x.left,depth+1);sum(x.right,depth+1);}}sum(root,1);mark(`完成；${n?`等概率成功 ASL=${cost}/${n}=${(cost/n).toFixed(3)}`:'空树无成功 ASL'}。`,4);return t.finish();}
 
-export const hashConfig=config('哈希操作',{size:'10',prime:'9',mode:'linear',operations:'put:7,put:34,put:55,put:25,put:64,del:55,get:64'},[['size','表长 m'],['prime','除数 p≤m'],['mode','冲突策略',[['linear','线性探测'],['quadratic','二次探测 ±k²'],['double','再散列（步长与 m 互质）'],['chain','拉链（桶内尾插）']]],['operations','put / get / del:整数，逗号分隔']],'最多 32 次操作，负键归一化取模。开放定址用墓碑删除；二次探测不保证覆盖全表。',[['墓碑继续查找',{size:'5',prime:'5',operations:'put:1,put:6,del:1,get:6'}],['满表终止',{size:'3',prime:'3',operations:'put:0,put:1,put:2,put:3,get:4'}]]);
-export function hash(d){const m=integer(d.size,2,16,'m'),p=integer(d.prime,1,m,'p'),ops=d.operations.split(/[,，]/).map(x=>x.trim()).filter(Boolean),t=trace(['由 H(k)=k mod p 计算原始地址','按冲突策略探测 / 遍历桶','遇 EMPTY 可停止；DELETED 必须继续','插入 / 删除 / 返回查找结果']),a=Array(m).fill(null),buckets=Array.from({length:m},()=>[]),mod=(x,n)=>(x%n+n)%n;needs(ops.length<=32,'最多 32 次操作。');const mark=(s,line,active=[],out=[])=>t.mark(s,[row('槽位（·未用，†已删）',d.mode==='chain'?buckets.map(x=>x.join('→')||'·'):a.map(x=>x===null?'·':x==='D'?'†':x),active)],out,line);mark('初始化空表。',0);for(const op of ops){const match=op.match(/^(put|get|del):([+-]?\d+)$/);needs(match,'格式须为 put:整数、get:整数、del:整数。');const [,action,raw]=match,key=integer(raw,-999,999,'键'),home=mod(key,p);mark(`${action} ${key}，H=${home}。`,0,[home]);if(d.mode==='chain'){const bucket=buckets[home];let k=-1;for(let i=0;i<bucket.length;i++){mark(`桶 ${home} 第 ${i+1} 次比较 ${bucket[i]} 与 ${key}。`,1,[home]);if(bucket[i]===key){k=i;break;}}if(action==='put'&&k<0)bucket.push(key);if(action==='del'&&k>=0)bucket.splice(k,1);mark(action==='get'?(k>=0?'命中':'查找失败'):action==='del'?(k>=0?'从桶链摘下该键':'键不存在，无需删除'):(k<0?'尾插入桶链':'键已存在，不重复插入'),3,[home],[k>=0?'命中':action==='put'?'已插入':'不存在']);continue;}
-        const gcd=(a,b)=>b?gcd(b,a%b):a;let step=1+mod(key,m-1);while(gcd(step,m)!==1)step=step%(m-1)+1;const sequence=[];if(d.mode==='quadratic'){sequence.push(home);for(let k=1;k<=m;k++){sequence.push(mod(home+k*k,m),mod(home-k*k,m));}}else for(let i=0;i<m;i++)sequence.push(mod(home+i*(d.mode==='double'?step:1),m));let found=-1,first=-1,empty=-1,probes=0;for(const j of sequence){probes++;mark(`第 ${probes} 次探测槽 ${j}${d.mode==='double'?`，步长 ${step}`:''}。`,1,[j],[`探测 ${probes} 次`]);if(a[j]===key){found=j;break;}if(a[j]==='D'&&first<0)first=j;if(a[j]===null){empty=j;break;}}
-        if(action==='get')mark(found>=0?`命中槽 ${found}，${probes} 次探测。`:`失败：${empty>=0?'遇到从未用的空槽':'探测上限耗尽（序列可能未覆盖所有槽）'}。`,2,found<0?[]:[found],[found]);
-        if(action==='del'){if(found>=0)a[found]='D';mark(found>=0?`槽 ${found} 标记为墓碑，保留探测链。`:'键不存在，不修改。',3,found<0?[]:[found]);}
-        if(action==='put'){const pos=first>=0?first:empty;if(found>=0)mark('键已存在，不重复插入。',3,[found]);else if(pos<0)mark('插入失败：此探测序列中无可用槽（线性/再散列表满；二次可能未覆盖空槽）。',3);else{a[pos]=key;mark(`写入槽 ${pos}${first>=0?'，复用首个墓碑':''}。`,3,[pos],[pos]);}}}return t.finish();}
+export const hashConfig=config('哈希插入',{size:'10',prime:'9',mode:'linear',operations:'7,34,55,25,64'},[['size','表长 m'],['prime','除数 p≤m'],['mode','冲突策略',[['linear','线性探测'],['chain','拉链法（桶内尾插）']]],['operations','依次插入的整数（逗号分隔）']],'仅演示插入。最多 32 个整数，负键归一化取模；重复键不重复插入。',[['连续冲突',{size:'5',prime:'5',operations:'1,6,11,16'}],['满表终止',{size:'3',prime:'3',operations:'0,1,2,3'}]]);
+export function hash(d) {
+    const m=integer(d.size,2,16,'m'),p=integer(d.prime,1,m,'p'),ops=d.operations.split(/[,，]/).map(x=>x.trim()).filter(Boolean);
+    needs(d.mode==='linear'||d.mode==='chain','冲突策略仅支持线性探测和拉链法。');needs(ops.length<=32,'最多 32 个插入键。');
+    const t=trace(['计算 H(k)=k mod p','探测下一槽 / 沿桶链检查重复','遇空位插入 / 桶内尾插','报告插入结果']),a=Array(m).fill(null),buckets=Array.from({length:m},()=>[]);
+    const mark=(s,line,active=[],out=[])=>t.mark(s,[row(d.mode==='chain'?'桶链（按插入顺序）':'槽位（·未用）',d.mode==='chain'?buckets.map(x=>x.join('→')||'·'):a.map(x=>x===null?'·':x),active)],out,line);
+    mark('初始化空表。',0);
+    for(const raw of ops) {
+        const key=integer(raw,-999,999,'插入键'),home=(key%p+p)%p;mark(`插入 ${key}，H(${key})=${home}。`,0,[home]);
+        if(d.mode==='chain') {
+            const bucket=buckets[home];let exists=false;
+            for(const value of bucket){mark(`桶 ${home}：比较已有键 ${value} 与 ${key}。`,1,[home]);if(value===key){exists=true;break;}}
+            if(!exists)bucket.push(key);
+            mark(exists?'键已存在，不重复插入。':`${key} 尾插到桶 ${home}。`,3,[home],[exists?'已存在':`桶 ${home}`]);
+        } else {
+            let position=-1,exists=false;
+            for(let i=0;i<m;i++) {
+                const j=(home+i)%m;mark(`第 ${i+1} 次探测槽 ${j}。`,1,[j]);
+                if(a[j]===key){position=j;exists=true;break;}
+                if(a[j]===null){position=j;break;}
+            }
+            if(position<0)mark(`插入 ${key} 失败：探测 ${m} 个槽后仍无空位，表已满。`,3,[],['表满']);
+            else {if(!exists)a[position]=key;mark(exists?'键已存在，不重复插入。':`写入槽 ${position}。`,2,[position],[position]);}
+        }
+    }
+    return t.finish();
+}

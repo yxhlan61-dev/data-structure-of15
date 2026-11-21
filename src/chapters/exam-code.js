@@ -78,16 +78,16 @@ int add(const Term *a,const Term *b,Term **out) {
     *out=dummy.next; return 1;
 }`,'    Term a={3,2,NULL},b={-3,2,NULL},*out; assert(add(&a,&b,&out)&&out==NULL); assert(add(&a,NULL,&out)&&out->coef==3); destroy(out);','3x² 与 −3x² 抵消，结果链为空；空表与 3x² 相加仍为 3x²。','typedef struct Term { int coef,exp; struct Term *next; } Term;\n')],
 '03': [
-lesson('stack-queue','顺序栈与循环队列','栈 top 为个数；队列 front 指队头、rear 指下一可写位，牺牲一格。','单次操作 O(1)，结构空间 O(CAP)。','先判空满再改数据；所有队列下标用模运算回绕。',String.raw`int push(Stack *s,int x) { if(s->top==CAP)return 0; s->a[s->top++]=x; return 1; }
+lesson('stack-queue','顺序栈与循环队列','栈 top 为个数；队列 front 指队头、rear 指队尾，count 区分空满，全部槽位可用。','单次操作 O(1)，结构空间 O(CAP)。','先判空满再改数据；所有队列下标用模运算回绕。',String.raw`int push(Stack *s,int x) { if(s->top==CAP)return 0; s->a[s->top++]=x; return 1; }
 int pop(Stack *s,int *x) { if(!s->top)return 0; *x=s->a[--s->top]; return 1; }
 int enqueue(Queue *q,int x) {
-    int next=(q->rear+1)%CAP; if(next==q->front)return 0;
-    q->a[q->rear]=x; q->rear=next; return 1;
+    if(q->count==CAP)return 0;
+    q->rear=(q->rear+1)%CAP; q->a[q->rear]=x; q->count++; return 1;
 }
 int dequeue(Queue *q,int *x) {
-    if(q->front==q->rear)return 0;
-    *x=q->a[q->front]; q->front=(q->front+1)%CAP; return 1;
-}`,'    Stack s={0}; Queue q={0}; int x; assert(!pop(&s,&x)); assert(push(&s,7)&&pop(&s,&x)&&x==7); for(int i=0;i<CAP-1;i++)assert(enqueue(&q,i)); assert(!enqueue(&q,9)); assert(dequeue(&q,&x)&&x==0); assert(enqueue(&q,9));','CAP=4，入 0,1,2 后满；出 0 再入 9，rear 回绕到 0。','enum {CAP=4};\ntypedef struct {int a[CAP],top;} Stack;\ntypedef struct {int a[CAP],front,rear;} Queue;\n'),
+    if(q->count==0)return 0;
+    *x=q->a[q->front]; q->front=(q->front+1)%CAP; q->count--; return 1;
+}`,'    Stack s={0}; Queue q={.rear=CAP-1}; int x; assert(!pop(&s,&x)); assert(push(&s,7)&&pop(&s,&x)&&x==7); for(int i=0;i<CAP;i++)assert(enqueue(&q,i)); assert(!enqueue(&q,9)); assert(dequeue(&q,&x)&&x==0); assert(enqueue(&q,9));','CAP=4，入 0,1,2,3 后满；出 0 再入 9，rear 回绕到 0。','enum {CAP=4};\ntypedef struct {int a[CAP],top;} Stack;\ntypedef struct {int a[CAP],front,rear,count;} Queue;\n'),
 lesson('linked-queue','链栈与带哨兵链队列','链栈 top 可为 NULL；链队列需先初始化哨兵。','每次入出 O(1)，总空间 O(n)。','删除链队列末项时 rear 必须指回哨兵；返回的值需在 free 之前读取。',String.raw`int push(Node **top,int x) {
     Node *p=malloc(sizeof *p); if(!p)return 0;
     *p=(Node){x,*top}; *top=p; return 1;
@@ -184,19 +184,6 @@ int kmp(const char *s,const char *p,int next[]) {
     }
     return j==m?i-m:-1;
 }`,'    int next[100]; assert(kmp("aaaaab","aaab",next)==2); assert(bf("aaaaab","aaab")==2); assert(kmp("","",next)==0); assert(kmp("a","ab",next)==-1);','aaab 的 next 为 −1,0,1,2；在主串 aaaaab 中最终匹配起点为 2。')],
-'05': [lesson('address','数组定位与快速转置（理解用）','第 5 章仅考概念；代码帮助理解公式、计数和前缀起点。','定位 O(1)；快速转置 O(cols+t) 时间，O(cols) 辅助空间。','输入三元组按行列有序、坐标合法且无重复；输出缓冲至少 t 项，列数最多 100。pos 用于填入时会递增。',String.raw`long long row_offset(int i,int j,int cols) { return (long long)i*cols+j; }
-long long lower_index(int i,int j) { if(i<j){int t=i;i=j;j=t;} return (long long)i*(i+1)/2+j; }
-int transpose(const Triple a[],int t,int cols,Triple b[]) {
-    int count[100]={0},pos[100]={0};
-    if(cols<0||cols>100||t<0)return 0;
-    for(int k=0;k<t;k++){if(a[k].col<0||a[k].col>=cols)return 0; count[a[k].col]++;}
-    for(int c=1;c<cols;c++)pos[c]=pos[c-1]+count[c-1];
-    for(int k=0;k<t;k++) {
-        int p=pos[a[k].col]++;
-        b[p]=(Triple){a[k].col,a[k].row,a[k].value};
-    }
-    return 1;
-}`,'    Triple a[]={{0,2,5},{1,0,3}},b[2]; assert(transpose(a,2,3,b)); assert(b[0].row==0&&b[0].col==1); assert(lower_index(3,1)==7); assert(row_offset(1,2,4)==6);','输入 (0,2,5),(1,0,3) 转置按新行序为 (0,1,3),(2,0,5)。','typedef struct {int row,col,value;} Triple;\n')],
 '07': [
 lesson('graph','矩阵 DFS、BFS 与拓扑排序','顶点 0..n−1，edge 表示有边；图最多 32 点，按编号升序扫描。','矩阵版均 O(V²) 时间，visited、队列、递归栈 O(V)。邻接表版可达 O(V+E)。','BFS 入队时标记，外层循环遍历非连通图；拓扑用独立入度数组，输出不足 n 则有环。',String.raw`void dfs(int u) {
     seen[u]=1; printf("%d ",u);
