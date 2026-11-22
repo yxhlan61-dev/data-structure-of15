@@ -1,9 +1,9 @@
 import { config, trace, row, needs } from './course-shared.js';
 import { common, parseGraph } from './graphs.js';
 
-export const criticalPathConfig=config('AOE 网与关键路径', {...common,directed:'yes'},
+export const criticalPathConfig=config('AOE 网与关键路径', {...common,directed:'yes',edges:'A:B:3,A:C:2,A:D:1,B:E:5,B:F:2,C:E:2,C:F:2,D:F:3,E:G:4,F:G:2'},
     [['vertices','事件顶点（空格分隔）'],['edges','活动 起点:终点:工期，逗号分隔']],
-    '顶点表示事件，弧表示活动。工期为非负整数，图必须无环；默认 A..H 八个事件、十项活动，H 为孤立事件。支持多源、多汇及多条关键路径。',
+    '顶点表示事件，弧表示活动。工期为非负整数，图必须无环；默认 A..H 八个事件、十项活动，H 为孤立事件。默认关键路径 A→B→E→G，工期 12；C、D、F 的 ET 小于 LT，便于对比关键与非关键事件。',
     [['多条关键路径',{vertices:'A B C D E F G H',edges:'A:B:3,A:C:3,B:D:2,C:D:2,D:E:4,D:F:2,E:G:1,F:G:3'}],
      ['零工期活动',{vertices:'A B C H',edges:'A:B:0,B:C:2,A:C:2'}],
      ['课件做饭示例',{vertices:'A B C',edges:'A:B:10,B:C:10,A:C:30'}]]);

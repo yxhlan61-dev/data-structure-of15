@@ -46,8 +46,8 @@ try {
     await go('lab/critical-path');assert.equal(await page.locator('.trace-table').count(),2);
     assert.equal(await page.locator('.trace-table').nth(1).locator('tbody tr').count(),10);
     while(!await page.locator('[data-action=step-next]').isDisabled())await page.locator('[data-action=step-next]').click();
-    assert.equal(await page.locator('#lab-output .token').count(),4);
-    assert((await page.locator('#lab-output').textContent()).includes('总工期 10'));
+    assert.equal(await page.locator('#lab-output .token').count(),2);
+    assert((await page.locator('#lab-output').textContent()).includes('总工期 12'));
     if(process.env.SCREENSHOT_DIR)await page.screenshot({path:process.env.SCREENSHOT_DIR+'/ds-critical-path-desktop.png',fullPage:true});
     await page.locator('#speed').selectOption('4');assert.equal(await page.locator('#speed').inputValue(),'4');
     await go('ch02-doubly');await page.locator('[data-action=learn]').click();await page.locator('[data-action=mistake]').click();await page.reload();
