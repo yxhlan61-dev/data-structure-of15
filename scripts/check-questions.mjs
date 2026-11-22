@@ -23,6 +23,8 @@ for(const t of practiceTemplates){
         const q=instantiate(t.id,seed);instances++;variants.add(JSON.stringify([q.stem,q.options]));
         assert.deepEqual(q,instantiate(t.id,seed),'reproducible seed');assert.deepEqual(restoreQuestion({...q,solution:'<script>bad</script>'}),q);
         assert(q.stem&&q.solution&&q.title&&q.source&&q.difficulty);
+        assert(q.solution.includes('判断依据')&&q.solution.includes('本题解答与推导')&&q.solution.includes('易错点与适用条件'));
+        assert(!/undefined|NaN|WPL|带权路径长度/.test(q.solution));
         if(q.type==='single'||q.type==='multiple'){
             assert(q.options.length>=4&&q.options.length<=5);
             assert(q.answer.length>0);assert(q.options.every(o=>o.explanation));
