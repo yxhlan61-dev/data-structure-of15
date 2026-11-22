@@ -35,7 +35,7 @@ def verify(domain):
     manifest = json.loads(request(base + 'revision.json?verify=' + COMMIT))
     assert manifest['commit'] == COMMIT, (domain, 'commit mismatch', manifest['commit'], COMMIT)
     tracked = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', 'HEAD'], cwd=ROOT, text=True).splitlines()
-    expected = {p for p in tracked if p in ('index.html', 'favicon.svg') or p.startswith(('src/', 'styles/'))}
+    expected = {p for p in tracked if p in ('index.html', 'favicon.svg') or p.startswith(('src/', 'styles/', 'assets/'))}
     assert set(manifest['assets']) == expected, (domain, 'manifest asset set mismatch')
 
     def asset(item):

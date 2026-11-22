@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const project = new URL('../', import.meta.url);
 const output = new URL('dist/', project);
-const assets = ['index.html', 'favicon.svg', 'styles', 'src'];
+const assets = ['index.html', 'favicon.svg', 'styles', 'src', 'assets'];
 
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output);

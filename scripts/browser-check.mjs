@@ -36,7 +36,7 @@ try {
     assert.equal(await page.locator('h1').textContent(),'课程目录');
     for(const c of catalog){
         for(const hash of ['chapter/'+c.number,...c.topics,...c.codes.map(x=>'code/'+c.number+'/'+x),'chapter/'+c.number+'/lab']){
-            await go(hash);assert.equal(await page.locator('#chapter-select').inputValue(),c.number,hash);assert.equal(await page.locator('#sidebar nav[aria-label="学习空间"] a').count(),3);assert((await page.locator('h1').textContent()).length);routes++;
+            await go(hash);assert.equal(await page.locator('#chapter-select').inputValue(),c.number,hash);assert.equal(await page.locator('#sidebar nav[aria-label="学习空间"] a').count(),5);assert((await page.locator('h1').textContent()).length);routes++;
         }
         for(const id of c.demos){
             await go('lab/'+id);await page.waitForSelector('#step-count');

@@ -7,6 +7,8 @@ import { applyLab, closeLab, handleLabAction, openLab, setLabSpeed } from './ui/
 import { fillSearch, openSearch } from './ui/search.js';
 import { codePage } from './ui/code-page.js';
 import { directoryPage } from './ui/directory.js';
+import { papersPage } from './ui/papers.js';
+import { practicePage,handlePracticeAction,savePracticeInput,stopPracticeTimer,activatePracticeTimer,questionWrongSection } from './ui/practice.js';
 
 let chapter=chapters.find(c=>c.number===read('chapter','06'))||chapters[5];
 let route = { kind: 'chapter' };
@@ -19,6 +21,11 @@ document.documentElement.dataset.theme = read('theme','light') === 'dark' ? 'dar
 
 function routeOf() {
     const key=location.hash.slice(1);
+    if(key==='papers')return {kind:'papers'};
+    if(key==='papers/2022'||key.startsWith('papers/2022/'))return {kind:'papers',id:key.split('/')[2]||'2022'};
+    if(key==='practice')return {kind:'practice'};
+    if(key.startsWith('practice/topic/'))return {kind:'practice',topicId:key.slice(15)};
+    if(/^practice\/(question|exam|wrong|history|data)$/.test(key))return {kind:'practice',view:key.split('/')[1]};
     if(!key||key==='directory')return {kind:'directory',module:'knowledge'};
     if(key==='directory/lab'||key==='directory/code')return {kind:'directory',module:key.slice(10)};
     const removed={complexity:'01',polynomial:'02',address:'05',sparse:'05',generalized:'05'};
@@ -38,18 +45,21 @@ function routeOf() {
 }
 function renderRoute({scroll=true}={}) {
     closeLab();
+    stopPracticeTimer();
     if(byId('search-dialog').open) byId('search-dialog').close();
     route=routeOf();
-    if(route.kind!=='directory')write('chapter',chapter.number);
+    if(!['directory','papers','practice'].includes(route.kind))write('chapter',chapter.number);
     const {topics,demos:demoInfo}=chapter;
-    document.title = route.kind==='directory' ? '课程目录 · 数据结构复习平台' : route.kind==='topic' ? `${topics.find(t=>t.id===route.id).title} · 数据结构复习平台` :
+    document.title = route.kind==='papers'?'真题汇总 · 数据结构复习平台':route.kind==='practice'?'模拟题库训练 · 数据结构复习平台':route.kind==='directory' ? '课程目录 · 数据结构复习平台' : route.kind==='topic' ? `${topics.find(t=>t.id===route.id).title} · 数据结构复习平台` :
         route.kind==='demo' ? `${demoInfo.find(d=>d.id===route.id).title} · 数据结构复习平台` :
         route.kind==='code' ? '重点代码整理 · 数据结构复习平台' : chapter.title + ' · 数据结构复习平台';
     renderShell(chapter, route, learned);
     setSidebar(false);
     switch (route.kind) {
+        case 'papers':byId('main').innerHTML=papersPage(route.id);break;
+        case 'practice':byId('main').innerHTML=practicePage(route);break;
         case 'directory': byId('main').innerHTML=directoryPage(route.module,learned);break;
-        case 'mistakes': byId('main').innerHTML=`<div class="title-row"><div><div class="eyebrow">保存在此浏览器</div><h1>本地错题记录</h1><p>自测后收集薄弱主题；完成复习可逐项移除，不影响学习进度。</p></div></div><div class="topic-grid">${allTopics.filter(t=>mistakes.includes(t.id)).map(t=>`<article class="panel note"><h2><a href="#${t.id}">${t.title}</a></h2><p>${t.note}</p><button class="secondary" data-action="remove-mistake" data-topic="${t.id}">已掌握，移除记录</button></article>`).join('')||'<p>暂无记录。在知识页的易错点卡片中加入主题。</p>'}</div>`;break;
+        case 'mistakes': byId('main').innerHTML=`<div class="title-row"><div><div class="eyebrow">保存在此浏览器</div><h1>本地错题记录</h1><p>知识点收藏与题目错题分别保留，掌握后可移出待复习。</p></div></div><h2>知识点易错收藏</h2><div class="topic-grid">${allTopics.filter(t=>mistakes.includes(t.id)).map(t=>`<article class="panel note"><h2><a href="#${t.id}">${t.title}</a></h2><p>${t.note}</p><button class="secondary" data-action="remove-mistake" data-topic="${t.id}">已掌握，移除记录</button></article>`).join('')||'<p>暂无知识点收藏。在知识页的易错点卡片中加入主题。</p>'}</div>${questionWrongSection()}`;break;
         case 'topic': byId('main').innerHTML=topicPage(chapter, route.id, learned); break;
         case 'lab': byId('main').innerHTML=labIndex(chapter); break;
         case 'demo': openLab(route.id, chapter); break;
@@ -57,6 +67,7 @@ function renderRoute({scroll=true}={}) {
         default: byId('main').innerHTML=chapterPage(chapter, learned);
     }
     if(scroll) window.scrollTo(0,0);
+    activatePracticeTimer(()=>renderRoute({scroll:false}));
 }
 function setSidebar(open) {
     sidebarOpen=open;
@@ -89,6 +100,7 @@ document.addEventListener('click',event=>{
     const control=event.target.closest('[data-action]');
     if(control) {
         const action=control.dataset.action;
+        if(handlePracticeAction(action,control,()=>renderRoute({scroll:false})))return;
         if(action==='menu') setSidebar(!sidebarOpen);
         if(action==='theme') updateTheme();
         if(action==='search') openSearch(chapter);
@@ -128,7 +140,10 @@ document.addEventListener('change',event=>{
     }
     if(event.target.id==='speed') setLabSpeed(event.target.value);
 });
+document.addEventListener('input',savePracticeInput);
+document.addEventListener('change',savePracticeInput);
 document.addEventListener('submit',event=>{
+    if(['practice-answer','exam-answer','quiz-filters','quiz-wrong-filters'].includes(event.target.id)){event.preventDefault();return;}
     if(event.target.id!=='lab-form') return;
     event.preventDefault();
     applyLab(Object.fromEntries(new FormData(event.target)));

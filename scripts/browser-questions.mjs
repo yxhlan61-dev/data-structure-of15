@@ -1,0 +1,54 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'msedge',headless:true});
+try {
+    const page=await browser.newPage({viewport:{width:1440,height:1000},acceptDownloads:true}),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    await page.clock.install();
+    await page.goto(process.env.TEST_URL||'http://127.0.0.1:8000/');
+    const go=async hash=>{await page.evaluate(h=>location.hash=h,hash);await page.waitForTimeout(60);};
+    const stored=key=>page.evaluate(key=>JSON.parse(localStorage.getItem('ds-review:'+key)),key);
+    const select=async id=>{await go('practice');await page.locator(`[data-action="quiz-select"][data-id="${id}"]`).click();await page.waitForSelector('#practice-answer');return (await stored('practice-current')).question;};
+    assert.equal(await page.locator('#sidebar nav[aria-label="学习空间"] a').count(),5);
+    await go('papers');assert.equal(await page.locator('h1').textContent(),'真题汇总');
+    await go('papers/2022');assert.equal(await page.locator('.exam-question').count(),22);
+    const pdf=await page.request.get(new URL('/assets/exams/2022-paper.pdf',page.url()).href);assert.equal(pdf.status(),200);assert((await pdf.body()).subarray(0,4).toString()==='%PDF');
+    await page.waitForFunction(()=>[...document.querySelectorAll('img.exam-figure')].every(img=>img.complete&&img.naturalWidth>0));
+    await page.locator('[id="2022-choice-1"] .answer-details summary').click();assert((await page.locator('[id="2022-choice-1"]').textContent()).includes('参考答案：A、B'));
+    if(process.env.SCREENSHOT_DIR){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:process.env.SCREENSHOT_DIR+'/ds-paper-review.png',fullPage:false});}
+    const first=await select('intro-triangle'),bad=first.options.find(o=>!o.correct);
+    await page.locator(`#practice-answer input[value="${bad.id}"]`).check();await page.locator('[data-action=quiz-grade]').click();
+    assert.equal((await stored('question-attempts')).length,1);assert.equal((await stored('question-wrongs')).length,1);
+    assert(await page.locator('[data-action=quiz-grade]').isDisabled());
+    await page.locator('[data-action=quiz-reroll]').click();const changed=(await stored('practice-current')).question;assert.notEqual(changed.seed,first.seed);assert.notEqual(changed.stem,first.stem);
+    await go('practice/wrong');await page.locator('[data-action=quiz-wrong-retry]').click();assert.equal((await stored('practice-current')).question.seed,first.seed);
+    const right=first.options.find(o=>o.correct);await page.locator(`#practice-answer input[value="${right.id}"]`).check();await page.locator('[data-action=quiz-grade]').click();
+    assert.equal((await stored('question-wrongs'))[0].resolved,true);
+    const multi=await select('multi-01');await page.locator(`#practice-answer input[value="${multi.answer[0]}"]`).check();await page.locator('[data-action=quiz-grade]').click();
+    assert.equal((await stored('practice-current')).result.score,1);assert.equal(await page.locator('.quiz-feedback p').count(),4);
+    const fill=await select('fill-aoe');await page.locator('[name=fill-0]').fill(fill.answers[0].accepted[0]);await page.locator('[name=fill-1]').fill('-999');await page.locator('[data-action=quiz-grade]').click();assert.equal((await stored('practice-current')).result.score,1.5);
+    const sequence=await select('fill-next');await page.locator('[name=fill-0]').fill('['+sequence.answers[0].accepted[0].replaceAll(',','， ')+']');await page.locator('[data-action=quiz-grade]').click();assert.equal((await stored('practice-current')).result.score,3);
+    const fixed1=await select('multi-05'),fixed2=await select('multi-05');assert.equal(fixed1.stem,fixed2.stem);assert.deepEqual(fixed1.options,fixed2.options);
+    await select('code-02-doubly');const draft='<img src=x onerror="globalThis.injection=1">\n/* code draft */';await page.locator('[name=written]').fill(draft);await page.reload();await page.waitForSelector('[name=written]');assert.equal(await page.locator('[name=written]').inputValue(),draft);assert.equal(await page.evaluate(()=>globalThis.injection),undefined);
+    await page.locator('[data-action=quiz-reveal]').click();assert((await page.locator('.quiz-solution').textContent()).includes('复杂度'));await page.locator('[data-action=quiz-self][data-value="0.5"]').click();assert.equal((await stored('practice-current')).result.self,true);
+    await go('practice/data');const downloading=page.waitForEvent('download');await page.locator('[data-action=quiz-export]').click();const download=await downloading,backup=JSON.parse(readFileSync(await download.path(),'utf8'));assert.equal(backup.version,1);assert(backup.data['question-attempts'].length>=5);
+    await page.locator('#quiz-import-file').setInputFiles({name:'bad.json',mimeType:'application/json',buffer:Buffer.from('{"app":"wrong","version":1}')});await page.locator('#quiz-import-confirm').check();await page.locator('[data-action=quiz-import]').click();await page.waitForTimeout(50);assert((await page.locator('.quiz-notice').textContent()).includes('导入失败'));
+    backup.data['practice-current'].question.solution='<img src=x onerror="globalThis.injection=1">';
+    await page.locator('#quiz-import-file').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});await page.locator('#quiz-import-confirm').check();await page.locator('[data-action=quiz-import]').click();await page.waitForTimeout(200);await page.waitForSelector('#quiz-import-file');
+    await go('practice/question');assert.equal(await page.evaluate(()=>globalThis.injection),undefined);assert.equal(await page.locator('[name=written]').inputValue(),draft);
+    await go('practice/exam');await page.locator('[data-action=quiz-exam-start]').click();await page.waitForSelector('#exam-clock');let exam=await stored('practice-exam');assert.equal(exam.questions.length,22);const deadline=exam.deadline;
+    for(const id of exam.questions[0].question.answer)await page.locator(`#exam-answer input[value="${id}"]`).check();await page.reload();await page.waitForSelector('#exam-clock');assert.equal((await stored('practice-exam')).deadline,deadline);assert((await stored('practice-exam')).questions[0].answer.length>0);
+    await page.locator('[data-action=quiz-exam-go][data-index="20"]').first().click();await page.locator('[name=written]').fill('/* exam draft */');await go('directory');await go('practice/exam');assert.equal(await page.locator('[name=written]').inputValue(),'/* exam draft */');
+    await page.clock.fastForward(Math.max(1,deadline-Date.now()+2000));await page.waitForTimeout(50);assert.equal((await stored('practice-exam')).submitted,true);assert((await page.locator('#main').textContent()).includes('待自评 6 题'));
+    await page.locator('details.exam-question').nth(16).locator('summary').first().click();await page.locator('[data-action=quiz-exam-self][data-index="16"][data-value="1"]').click();assert((await page.locator('#main').textContent()).includes('待自评 5 题'));
+    const attemptsBefore=(await stored('question-attempts')).length;await page.locator('details.exam-question').nth(16).locator('summary').first().click();await page.locator('[data-action=quiz-exam-self][data-index="16"][data-value="1"]').click();assert.equal((await stored('question-attempts')).length,attemptsBefore);
+    if(process.env.SCREENSHOT_DIR){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:process.env.SCREENSHOT_DIR+'/ds-exam-report.png',fullPage:false});}
+    await page.locator('[data-action=quiz-exam-new]').click();assert.equal((await stored('exam-history')).length,1);await page.locator('[data-action=quiz-exam-submit]').click();await go('practice/history');assert.equal(await page.locator('[data-action=quiz-exam-open]').count(),1);
+    await page.locator('[data-action=quiz-exam-open]').click();assert((await page.locator('#main').textContent()).includes('待自评 5 题'));
+    await page.setViewportSize({width:390,height:844});await go('practice');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    if(process.env.SCREENSHOT_DIR)await page.screenshot({path:process.env.SCREENSHOT_DIR+'/ds-practice-mobile.png',fullPage:false});
+    await go('papers/2022/2022-calc-4');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    assert.deepEqual(errors,[]);console.log(JSON.stringify({paper:'22 questions + original PDF + figures',training:'random variants, fixed concepts, partial credit, fill normalization, code self-review',records:'wrong replay, persistence, archive, backup import/export',exam:'timing, auto-submit, objective + pending self scores',mobile:'passed',errors}));
+} finally {await browser.close();}
