@@ -8,7 +8,7 @@ import { fillSearch, openSearch } from './ui/search.js';
 import { codePage } from './ui/code-page.js';
 import { directoryPage } from './ui/directory.js';
 import { papersPage } from './ui/papers.js';
-import { practicePage,handlePracticeAction,savePracticeInput,stopPracticeTimer,activatePracticeTimer,questionWrongSection,restorePracticePosition } from './ui/practice.js';
+import { practicePage,handlePracticeAction,savePracticeInput,stopPracticeTimer,activatePracticeTimer,questionWrongSection,restorePracticePosition,resumePracticeRoute } from './ui/practice.js';
 
 let chapter=chapters.find(c=>c.number===read('chapter','06'))||chapters[5];
 let route = { kind: 'chapter' };
@@ -23,7 +23,8 @@ function routeOf() {
     const key=location.hash.slice(1);
     if(key==='papers')return {kind:'papers'};
     if(key==='papers/2022'||key.startsWith('papers/2022/'))return {kind:'papers',id:key.split('/')[2]||'2022'};
-    if(key==='practice')return {kind:'practice'};
+    if(key==='practice')return resumePracticeRoute();
+    if(key==='practice/catalog')return {kind:'practice',catalog:true};
     if(/^practice\/return\/[a-z0-9-]+$/.test(key))return {kind:'practice',returnId:key.split('/')[2]};
     if(key.startsWith('practice/topic/'))return {kind:'practice',topicId:key.slice(15)};
     if(/^practice\/(question|exam|wrong|history|data)$/.test(key))return {kind:'practice',view:key.split('/')[1]};
@@ -50,7 +51,7 @@ function renderRoute({scroll=true}={}) {
     if(byId('search-dialog').open) byId('search-dialog').close();
     const previousRoute=route;
     route=routeOf();
-    if(route.kind==='practice'&&!route.view&&!route.topicId&&previousRoute.kind==='practice'&&previousRoute.view==='question')route.returnId='current';
+    if(route.kind==='practice'&&!route.view&&!route.topicId&&!route.catalog&&previousRoute.kind==='practice'&&previousRoute.view==='question')route.returnId='current';
     if(!['directory','papers','practice'].includes(route.kind))write('chapter',chapter.number);
     const {topics,demos:demoInfo}=chapter;
     document.title = route.kind==='papers'?'真题汇总 · 数据结构复习平台':route.kind==='practice'?'模拟题库训练 · 数据结构复习平台':route.kind==='directory' ? '课程目录 · 数据结构复习平台' : route.kind==='topic' ? `${topics.find(t=>t.id===route.id).title} · 数据结构复习平台` :
