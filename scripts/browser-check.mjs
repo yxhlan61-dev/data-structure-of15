@@ -9,12 +9,31 @@ try {
     page.on('pageerror',e=>errors.push(e.message));
     page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
     await page.goto(process.env.TEST_URL||'http://127.0.0.1:8000');
+    assert.equal(await page.locator('h1').textContent(),'课程目录');
+    assert.equal(await page.locator('#chapter-select').inputValue(),'directory');
+    assert.equal(await page.locator('.directory-card').count(),9);
+    assert.equal(await page.locator('#chapter-select option').count(),10);
+    await page.evaluate(()=>localStorage.setItem('ds-review:chapter',JSON.stringify('07')));
+    await page.reload();assert.equal(await page.locator('h1').textContent(),'课程目录');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('ds-review:chapter')),'"07"');
     const catalog=await page.evaluate(async()=>{
         const {chapters}=await import('/src/chapters/course.js');
         return chapters.map(c=>({number:c.number,topics:c.topics.map(t=>t.id),demos:c.demos.map(d=>d.id),codes:(c.lessons||[{id:'tree'},{id:'heap'}]).map(x=>x.id)}));
     });
     let routes=0;
     const go=async hash=>{await page.evaluate(h=>location.hash=h,hash);await page.waitForFunction(h=>location.hash.slice(1)===h&&document.querySelector('h1')?.textContent.length>0,hash);await page.waitForTimeout(25);};
+    await go('directory/lab');assert.equal(await page.locator('.directory-card').count(),7);
+    assert.equal(await page.locator('#chapter-select').inputValue(),'directory');
+    assert.equal(await page.locator('#sidebar a[href="#directory/lab"]').getAttribute('aria-current'),'page');
+    await page.locator('#chapter-select').selectOption('05');await page.waitForTimeout(40);
+    assert.equal(await page.locator('h1').textContent(),'算法可视化');
+    await page.locator('#chapter-select').selectOption('directory');await page.waitForTimeout(40);
+    assert.equal(await page.locator('h1').textContent(),'算法可视化目录');
+    await go('directory/code');assert.equal(await page.locator('.directory-card').count(),8);
+    await page.locator('#main .directory-chapter[href="#chapter/02/code"]').click();await page.waitForTimeout(40);
+    assert.equal(await page.locator('#chapter-select').inputValue(),'02');
+    await page.locator('#sidebar .brand').click();await page.waitForTimeout(40);
+    assert.equal(await page.locator('h1').textContent(),'课程目录');
     for(const c of catalog){
         for(const hash of ['chapter/'+c.number,...c.topics,...c.codes.map(x=>'code/'+c.number+'/'+x),'chapter/'+c.number+'/lab']){
             await go(hash);assert.equal(await page.locator('#chapter-select').inputValue(),c.number,hash);assert.equal(await page.locator('#sidebar nav[aria-label="学习空间"] a').count(),3);assert((await page.locator('h1').textContent()).length);routes++;
@@ -78,6 +97,8 @@ try {
     await go('lab/avl');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile lab overflow');
     if(process.env.SCREENSHOT_DIR)await page.screenshot({path:process.env.SCREENSHOT_DIR+'/ds-mobile-avl.png',fullPage:true});
     await go('mistakes');await page.locator('[data-action=remove-mistake]').click();await page.reload();assert(!(await page.locator('#main').textContent()).includes('双向循环链表'));
+    await go('directory');assert.equal(await page.locator('.directory-card').count(),9);
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile directory overflow');
     assert.deepEqual(errors,[]);
     console.log(JSON.stringify({routes,errors,localStorage:'passed',search:'passed',player:'passed',mobile:'passed',theme:'passed'}));
 } finally {await browser.close();}

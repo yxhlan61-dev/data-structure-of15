@@ -41,3 +41,7 @@ dialog{width:min(510px,calc(100% - 26px));padding:14px;border:1px solid var(--bo
 .network .node{fill:var(--surface);stroke:var(--green);stroke-width:2px}.network .node.root{fill:var(--tint);stroke-width:4px}.network .letter{fill:var(--ink);text-anchor:middle;dominant-baseline:central;font-size:14px}.network .legend{fill:var(--muted);font-size:10px}.stage-view:has(.trace-rows){display:block;}
 
 .trace-table h3{font-size:13px;margin-bottom:4px}.trace-table-scroll{overflow:auto;max-height:260px}.trace-table td,.trace-table th{white-space:nowrap;padding:5px 7px;font-size:12px}.trace-table thead{position:sticky;top:0;background:var(--surface)}
+
+.directory-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:20px 0}.directory-summary .ico{margin-bottom:8px}.directory-card{display:flex;flex-direction:column}.directory-chapter{display:block;flex:1}.directory-links{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;font-weight:650;color:var(--green-ink)}.directory-links a:hover{text-decoration:underline}.directory-card .meta{display:block;margin-top:8px}@media(max-width:550px){.directory-summary{grid-template-columns:1fr}.directory-summary .note{display:grid;grid-template-columns:26px 1fr;align-items:center;gap:2px 8px}.directory-summary .ico{grid-row:span 2;margin:0}.directory-summary h2,.directory-summary p{margin:0}.directory-links{gap:7px;font-size:12px}}
+
+.directory-summary + section .section-head .meta{white-space:nowrap}

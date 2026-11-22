@@ -25,18 +25,21 @@ function heroArt() {
 
 export function renderShell(chapter, route, learned) {
     const { number, title, topics, demos: demoInfo } = chapter;
-    const onLab = route.kind === 'lab' || route.kind === 'demo';
-    const onCode = route.kind === 'code';
-    const chapterLearned=learned.filter(id=>topics.some(t=>t.id===id));
-    const section = onLab ? ['#lab', '算法可视化'] : onCode ? ['#code', '重点代码整理'] : ['#knowledge', '基础知识库'];
+    const onDirectory=route.kind==='directory';
+    const onLab = route.kind === 'lab' || route.kind === 'demo' || onDirectory&&route.module==='lab';
+    const onCode = route.kind === 'code' || onDirectory&&route.module==='code';
+    const progressTopics=onDirectory?chapters.flatMap(c=>c.topics):topics;
+    const chapterLearned=learned.filter(id=>progressTopics.some(t=>t.id===id));
+    const moduleSuffix=onLab?'/lab':onCode?'/code':'';
+    const section = onDirectory?['#directory'+moduleSuffix,onLab?'算法可视化':onCode?'重点代码整理':'基础知识库']:onLab ? ['#lab', '算法可视化'] : onCode ? ['#code', '重点代码整理'] : ['#knowledge', '基础知识库'];
     const nav = (href, name, symbol, active) => `<a href="${href}" class="nav-link${active?' current':''}" ${active?'aria-current="page"':''}>${icon(symbol)}<span>${name}</span></a>`;
-    byId('sidebar').innerHTML = `<a class="brand" href="#knowledge"><span class="brand-icon">${icon('tree')}</span><span><b>数据结构复习平台</b><small>期末复习工作台</small></span></a>
-      <div class="side-label">学习空间</div><nav aria-label="学习空间">${nav('#knowledge','基础知识库','book',!onLab&&!onCode)}${nav('#lab','算法可视化','lab',onLab)}${nav('#code','重点代码整理','grid',onCode)}</nav>
-      <div class="chapter-picker"><label for="chapter-select">课程章节</label><select id="chapter-select" aria-label="切换课程章节">${chapters.map(c=>`<option value="${c.number}"${c===chapter?' selected':''}>${c.number} · ${c.title}</option>`).join('')}</select><a href="#mistakes" class="side-topic">${icon('book')} 本地错题记录</a></div>
-      <div class="side-chapter"><div class="chapter-heading"><span class="chapter-index">${number}</span>${title}</div>
-      <nav class="topics" aria-label="本章知识点">${topics.map(t=>`<a class="side-topic${route.id===t.id?' current':''}" ${route.id===t.id?'aria-current="page"':''} href="#${t.id}">${t.short}${learned.includes(t.id)?icon('check','tick'):''}</a>`).join('')}</nav></div>
-      <div class="rail-foot"><div class="rail-foot-line"><span>本章进度</span><span>${chapterLearned.length} / ${topics.length}</span></div><div class="progress-track" role="progressbar" aria-label="本章进度" aria-valuenow="${chapterLearned.length}" aria-valuemax="${topics.length}"><i style="width:${chapterLearned.length/topics.length*100}%"></i></div><small>学习进度保存在此浏览器</small></div>`;
-    const breadcrumb = route.kind === 'topic' ? topics.find(t=>t.id===route.id).title :
+    byId('sidebar').innerHTML = `<a class="brand" href="#directory"><span class="brand-icon">${icon('tree')}</span><span><b>数据结构复习平台</b><small>期末复习工作台</small></span></a>
+      <div class="side-label">学习空间</div><nav aria-label="学习空间">${nav(onDirectory?'#directory':'#knowledge','基础知识库','book',!onLab&&!onCode)}${nav(onDirectory?'#directory/lab':'#lab','算法可视化','lab',onLab)}${nav(onDirectory?'#directory/code':'#code','重点代码整理','grid',onCode)}</nav>
+      <div class="chapter-picker"><label for="chapter-select">课程章节</label><select id="chapter-select" aria-label="切换课程章节"><option value="directory"${onDirectory?' selected':''}>目录 · 全站总览</option>${chapters.map(c=>`<option value="${c.number}"${!onDirectory&&c===chapter?' selected':''}>${c.number} · ${c.title}</option>`).join('')}</select><a href="#mistakes" class="side-topic">${icon('book')} 本地错题记录</a></div>
+      ${onDirectory?`<div class="side-chapter"><div class="chapter-heading">课程目录</div><nav class="topics" aria-label="全部课程章节">${chapters.map(c=>`<a class="side-topic" href="#chapter/${c.number}${moduleSuffix}">${c.number} · ${c.title}</a>`).join('')}</nav></div>`:`<div class="side-chapter"><div class="chapter-heading"><span class="chapter-index">${number}</span>${title}</div>
+      <nav class="topics" aria-label="本章知识点">${topics.map(t=>`<a class="side-topic${route.id===t.id?' current':''}" ${route.id===t.id?'aria-current="page"':''} href="#${t.id}">${t.short}${learned.includes(t.id)?icon('check','tick'):''}</a>`).join('')}</nav></div>`}
+      <div class="rail-foot"><div class="rail-foot-line"><span>${onDirectory?'总复习进度':'本章进度'}</span><span>${chapterLearned.length} / ${progressTopics.length}</span></div><div class="progress-track" role="progressbar" aria-label="${onDirectory?'总复习进度':'本章进度'}" aria-valuenow="${chapterLearned.length}" aria-valuemax="${progressTopics.length}"><i style="width:${chapterLearned.length/progressTopics.length*100}%"></i></div><small>学习进度保存在此浏览器</small></div>`;
+    const breadcrumb = onDirectory?'课程目录':route.kind === 'topic' ? topics.find(t=>t.id===route.id).title :
         route.kind === 'demo' ? demoInfo.find(d=>d.id===route.id).title : title;
     byId('crumbs').innerHTML = `<button class="icon-btn menu-btn" data-action="menu" aria-label="打开章节导航" aria-controls="sidebar" aria-expanded="false">${icon('menu')}</button><a href="${section[0]}">${section[1]}</a>${icon('chev')}<strong>${breadcrumb}</strong>`;
     const dark = document.documentElement.dataset.theme==='dark';
