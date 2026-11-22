@@ -96,14 +96,14 @@ const topics = [
     },
     {
         id:'ch06-huffman', title:'Huffman 树与编码', short:'Huffman 编码', icon:'bits', tone:'plum', blurb:'从频数表得到前缀编码。', lead:'每轮合并当前最轻的两棵树，用树上路径得到可逐位解码的码字。',
-        body:`<h2>路径、权值与带权路径长度</h2>
-        <p>根到叶子的路径长度等于边数。某个叶子的带权路径长度等于它的权值乘路径长度。全树的 WPL 是所有叶子带权路径长度之和。对固定的一组叶权，Huffman 树使 WPL 最小。</p>
+        body:`<h2>符号频数与编码</h2>
+        <p>频数表示一个符号出现的次数，码长表示该符号编码所需的比特数。Huffman 编码根据符号频数构造二叉树，为符号分配长度可以不同的二进制编码。2022 年原题要求据此计算编码前后数据所占用空间的比特数。</p>
         <h2>构造与编码</h2>
         <ol><li>每个符号及其频数构成一棵单结点树。</li><li>每轮从<strong>当前候选</strong>取权重最小的两棵树，合并成新根，根权取两权之和，再将新树放回。</li><li>只剩一棵时结束。k 种符号共合并 k−1 次，得到 k 个叶子和 k−1 个新根。</li><li>约定左边为 0、右边为 1。从根到叶的比特串就是码字。解码按位走，走到叶就输出符号并回根。</li></ol>
         <p>每个码字都在叶子结束，任何码字均不会成为另一个码字的前缀。若候选权值相同，可以有不同的最优合并顺序或码字。用最小堆维护候选树，构造耗时 O(k log k)。</p>
         <h2>计算有效码流位数</h2>
-        <p>当权重是频数时，<code>WPL = Σ(频数 × 码长)</code>，也等于各轮合并权重之和。单符号只有根，理论树 WPL 为 0；若约定实际编码为一位 <code>0</code>，实际码流位数等于符号频数。</p>
-        <div class="example"><strong>2022 A 卷频数（用字母表示符号）</strong><p><code>${huffmanExampleWeights}</code>，其中 <code>E:4</code> 表示 E 出现 4 次。合并权重依次为 11、21、32、60，WPL 为 124。动画的码字为 <code>A→0，B→110，C→111，D→101，E→100</code>。原题 60 个 4 字节整数占 <code>60×32=1920</code> 位，编码后有效码流为 124 位。保存完整压缩文件还要考虑码表等开销。</p></div>`,
+        <p>逐个符号计算<code>出现次数 × 编码位数</code>，再将结果相加，得到编码后数据所占的比特数。例如，一个符号出现 7 次、每次编码占 3 位，就需要 21 位。若只有一种符号，本演示约定编码为一位 <code>0</code>，按每次出现占 1 位计算。</p>
+        <div class="example"><strong>2022 A 卷频数（用字母表示符号）</strong><p><code>${huffmanExampleWeights}</code>，其中 <code>E:4</code> 表示 E 出现 4 次。合并权重依次为 11、21、32、60。动画的码字为 <code>A→0，B→110，C→111，D→101，E→100</code>。原题 60 个 4 字节整数占 <code>60×32=1920</code> 位，编码后数据占 <code>28×1+(10+11+7+4)×3=124</code> 位。保存完整压缩文件还要考虑码表等开销。</p></div>`,
         note:'同权时可以选择不同的合并顺序，码字会变，最优总代价相同。实际存文件时还需要能恢复码表的信息。', demos:['huffman']
     },
     {
@@ -124,7 +124,7 @@ const demoInfo = [
     {id:'traversal', title:'二叉树遍历', icon:'path', tone:'', topicId:'ch06-traversal', desc:'用访问顺序、调用栈和队列对照四种遍历。'},
     {id:'rebuild', title:'由序列重建二叉树', icon:'split', tone:'blue', topicId:'ch06-traversal', desc:'定位根结点，分割中序区间，逐步长出左右子树。'},
     {id:'heap', title:'二叉堆调整', icon:'heap', tone:'amber', topicId:'ch06-heap', desc:'同时观察数组和树，跟踪比较、交换、上滤与下滤。'},
-    {id:'huffman', title:'Huffman 编码', icon:'bits', tone:'plum', topicId:'ch06-huffman', desc:'从逐轮合并到 0/1 编码，计算带权路径长度。'},
+    {id:'huffman', title:'Huffman 编码', icon:'bits', tone:'plum', topicId:'ch06-huffman', desc:'从逐轮合并到 0/1 编码，计算编码后的比特数。'},
     {id:'forest', title:'树与森林转换', icon:'forest', tone:'blue', topicId:'ch06-forest', desc:'在森林关系与二叉指针之间来回转换。'}
 ];
 
