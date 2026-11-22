@@ -13,7 +13,7 @@ assert.deepEqual(paper2022.filter(q=>q.options).map(q=>q.answer.join('')),['AB',
 assert(paper2022.every(q=>q.stem&&q.answer&&q.solution&&allTopics.some(t=>t.id===q.topicId)));
 const source=new URL('../复习范围和往年题/test2022A-数据结构.pdf',import.meta.url),publicPaper=new URL('../assets/exams/2022-paper.pdf',import.meta.url);
 if(existsSync(source))assert.equal(createHash('sha256').update(readFileSync(source)).digest('hex'),createHash('sha256').update(readFileSync(publicPaper)).digest('hex'));
-assert.equal(practiceTemplates.length,88);assert.equal(new Set(practiceTemplates.map(t=>t.id)).size,88);
+assert.equal(practiceTemplates.length,142);assert.equal(new Set(practiceTemplates.map(t=>t.id)).size,142);
 for(const topic of allTopics)assert(practiceTemplates.some(t=>t.topicId===topic.id),'missing '+topic.id);
 let instances=0;
 for(const t of practiceTemplates){
@@ -50,6 +50,7 @@ for(let n=0;n<100;n++){
     const ex=createExam(n,10000);assert.equal(ex.questions.length,22);assert.equal(ex.questions.reduce((s,i)=>s+i.points,0),100);
     assert.deepEqual(['single','multiple','fill','calculation','programming'].map(t=>ex.questions.filter(i=>i.question.type===t).length),[4,4,8,4,2]);
     assert.equal(ex.deadline-ex.startedAt,7200000);
+    assert.equal(ex.questions.filter(i=>isObjective(i.question)&&!i.question.parametric).length,12);
     for(const item of ex.questions)if(isObjective(item.question))item.answer=item.question.answer||item.question.answers.map(f=>f.accepted[0]);
     submitExam(ex,20000);assert.deepEqual(examTotals(ex),{objective:50,subjective:0,pending:6,total:50});
     const original=JSON.stringify(ex);submitExam(ex,999999);assert.equal(JSON.stringify(ex),original,'idempotent submit');

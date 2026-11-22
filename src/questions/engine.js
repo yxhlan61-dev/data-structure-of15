@@ -14,6 +14,14 @@ export function createExam(seed,now=Date.now(),minutes=120) {
     const r=seeded(seed),take=(type,n)=>{
         const pool=practiceTemplates.filter(t=>type==='choice'?['single','multiple'].includes(t.type):t.type===type);
         for(let i=pool.length-1;i>0;i--){const j=r(0,i);[pool[i],pool[j]]=[pool[j],pool[i]];}
+        if(type==='single'||type==='fill'){
+            const concepts=pool.filter(t=>!t.parametric),numeric=pool.filter(t=>t.parametric);
+            const fixedCount=Math.min(concepts.length,Math.ceil(n*0.6));
+            const selected=[...concepts.slice(0,fixedCount),...numeric.slice(0,n-fixedCount)];
+            for(const t of pool)if(selected.length<n&&!selected.includes(t))selected.push(t);
+            for(let i=selected.length-1;i>0;i--){const j=r(0,i);[selected[i],selected[j]]=[selected[j],selected[i]];}
+            return selected;
+        }
         return pool.slice(0,n);
     };
     const chosen=[...take('single',4),...take('multiple',4),...take('fill',8),...take('calculation',4),...take('programming',2)];
