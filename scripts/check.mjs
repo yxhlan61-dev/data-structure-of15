@@ -13,7 +13,7 @@ const last=r=>r.frames.at(-1);
 let cases=0;
 function validate(id,r){assert(r.frames.length>0,id);for(const f of r.frames){assert.equal(typeof f.explanation,'string');assert(Array.isArray(f.output));if(f.graph)assert(!/undefined|NaN/.test(drawTree(f.graph,f)),id);if(f.network)assert(!/undefined|NaN/.test(drawNetwork(f.network,f.active)),id);}cases++;}
 assert.equal(chapters.length,9);assert.equal(new Set(allTopics.map(t=>t.id)).size,allTopics.length);assert.equal(new Set(allDemos.map(t=>t.id)).size,allDemos.length);
-for(const c of chapters){assert(c.topics.length);for(const t of c.topics){assert(t.body.length>350,t.id);for(const id of t.demos)assert(c.demos.some(d=>d.id===id),t.id);}for(const d of c.demos){assert(labs[d.id],d.id);assert(c.topics.some(t=>t.id===d.topicId));}assert(codePage(c).includes(c.lessons?.length===0?'仅保留基础知识库':'重点代码整理'));}
+for(const c of chapters){assert(c.topics.length);for(const t of c.topics){assert(t.body.length>350,t.id);for(const id of t.demos)assert(c.demos.some(d=>d.id===id),t.id);}for(const d of c.demos){assert(labs[d.id],d.id);assert(c.topics.some(t=>t.id===d.topicId));}assert(codePage(c).includes('重点代码整理'));}
 for(const [id,l] of Object.entries(labs)){validate(id,run(id));for(const [,preset] of l.config.presets||[])validate(id,run(id,preset));}
 assert.deepEqual(last(run('list',{nodes:'1,1,1,2',mode:'unique'})).output,[1,2]);
 assert.deepEqual(last(run('list',{nodes:'',mode:'insert',position:'0',value:'7'})).output,[7]);

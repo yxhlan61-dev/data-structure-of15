@@ -17,7 +17,7 @@ try {
     const go=async hash=>{await page.evaluate(h=>location.hash=h,hash);await page.waitForFunction(h=>location.hash.slice(1)===h&&document.querySelector('h1')?.textContent.length>0,hash);await page.waitForTimeout(25);};
     for(const c of catalog){
         for(const hash of ['chapter/'+c.number,...c.topics,...c.codes.map(x=>'code/'+c.number+'/'+x),'chapter/'+c.number+'/lab']){
-            await go(hash);assert.equal(await page.locator('#chapter-select').inputValue(),c.number,hash);assert((await page.locator('h1').textContent()).length);routes++;
+            await go(hash);assert.equal(await page.locator('#chapter-select').inputValue(),c.number,hash);assert.equal(await page.locator('#sidebar nav[aria-label="学习空间"] a').count(),3);assert((await page.locator('h1').textContent()).length);routes++;
         }
         for(const id of c.demos){
             await go('lab/'+id);await page.waitForSelector('#step-count');
@@ -31,9 +31,18 @@ try {
         }
     }
     await go('chapter/05');
-    assert.equal(await page.locator('#sidebar a[href="#lab"],#sidebar a[href="#code"]').count(),0);
+    assert.equal(await page.locator('#sidebar a[href="#lab"],#sidebar a[href="#code"]').count(),2);
     assert.equal(await page.locator('#main a[href*="/lab"],#main a[href*="/code"]').count(),0);
-    await go('code/05/address');assert.equal(await page.locator('h1').textContent(),'数组与广义表');
+    await go('code/05/address');assert.equal(await page.locator('h1').textContent(),'重点代码整理');
+    assert((await page.locator('#main').textContent()).includes('本章不设置重点代码整理内容'));
+    assert.equal(await page.locator('#sidebar a[href="#code"]').getAttribute('aria-current'),'page');
+    await page.locator('#sidebar a[href="#lab"]').click();await page.waitForTimeout(40);
+    assert.equal(await page.locator('h1').textContent(),'算法可视化');
+    assert.equal(await page.locator('#sidebar a[href="#lab"]').getAttribute('aria-current'),'page');
+    assert.equal(await page.locator('#main a[href="#chapter/02/lab"]').count(),1);
+    await page.reload();assert.equal(await page.locator('h1').textContent(),'算法可视化');
+    await page.locator('#main a[href="#chapter/02/lab"]').click();await page.waitForTimeout(40);
+    assert.equal(await page.locator('#chapter-select').inputValue(),'02');
     for(const id of ['complexity','polynomial','address','sparse','generalized']){await go('lab/'+id);assert.equal(await page.locator('#lab-form').count(),0);}
     await go('lab/matching');assert((await page.locator('[name=mode]').textContent()).includes('BF（暴力匹配）'));
     assert((await page.locator('[name=mode]').textContent()).includes('KMP（模式匹配'));

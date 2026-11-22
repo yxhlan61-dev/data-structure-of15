@@ -31,7 +31,7 @@ export function renderShell(chapter, route, learned) {
     const section = onLab ? ['#lab', '算法可视化'] : onCode ? ['#code', '重点代码整理'] : ['#knowledge', '基础知识库'];
     const nav = (href, name, symbol, active) => `<a href="${href}" class="nav-link${active?' current':''}" ${active?'aria-current="page"':''}>${icon(symbol)}<span>${name}</span></a>`;
     byId('sidebar').innerHTML = `<a class="brand" href="#knowledge"><span class="brand-icon">${icon('tree')}</span><span><b>数据结构复习平台</b><small>期末复习工作台</small></span></a>
-      <div class="side-label">学习空间</div><nav aria-label="学习空间">${nav('#knowledge','基础知识库','book',!onLab&&!onCode)}${demoInfo.length?nav('#lab','算法可视化','lab',onLab):''}${chapter.lessons?.length===0?'':nav('#code','重点代码整理','grid',onCode)}</nav>
+      <div class="side-label">学习空间</div><nav aria-label="学习空间">${nav('#knowledge','基础知识库','book',!onLab&&!onCode)}${nav('#lab','算法可视化','lab',onLab)}${nav('#code','重点代码整理','grid',onCode)}</nav>
       <div class="chapter-picker"><label for="chapter-select">课程章节</label><select id="chapter-select" aria-label="切换课程章节">${chapters.map(c=>`<option value="${c.number}"${c===chapter?' selected':''}>${c.number} · ${c.title}</option>`).join('')}</select><a href="#mistakes" class="side-topic">${icon('book')} 本地错题记录</a></div>
       <div class="side-chapter"><div class="chapter-heading"><span class="chapter-index">${number}</span>${title}</div>
       <nav class="topics" aria-label="本章知识点">${topics.map(t=>`<a class="side-topic${route.id===t.id?' current':''}" ${route.id===t.id?'aria-current="page"':''} href="#${t.id}">${t.short}${learned.includes(t.id)?icon('check','tick'):''}</a>`).join('')}</nav></div>

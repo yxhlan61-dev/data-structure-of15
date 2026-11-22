@@ -36,7 +36,6 @@ function renderRoute({scroll=true}={}) {
     closeLab();
     if(byId('search-dialog').open) byId('search-dialog').close();
     route=routeOf();
-    if((route.kind==='lab'&&!chapter.demos.length)||(route.kind==='code'&&chapter.lessons?.length===0))route={kind:'chapter'};
     write('chapter',chapter.number);
     const {topics,demos:demoInfo}=chapter;
     document.title = route.kind==='topic' ? `${topics.find(t=>t.id===route.id).title} · 数据结构复习平台` :
