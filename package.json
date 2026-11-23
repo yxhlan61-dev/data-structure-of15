@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-pages.mjs",
-    "test": "node scripts/check.mjs && node scripts/check-questions.mjs"
+    "test": "node scripts/check.mjs && node scripts/check-questions.mjs && node scripts/check-practice-tabs.mjs"
   }
 }

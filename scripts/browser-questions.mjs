@@ -11,6 +11,7 @@ try {
     await page.goto(process.env.TEST_URL||'http://127.0.0.1:8000/');
     const go=async hash=>{await page.evaluate(h=>location.hash=h,hash);await page.waitForTimeout(60);};
     const stored=key=>page.evaluate(key=>JSON.parse(localStorage.getItem('ds-review:'+key)),key);
+    const drainRecords=()=>page.evaluate(()=>navigator.locks?.request('ds-review:practice-records',()=>{}));
     const select=async id=>{await go('practice/catalog');await page.locator(`[data-action="quiz-select"][data-id="${id}"]`).click();await page.waitForSelector('.exam-question');return (await stored('practice-current')).question;};
     assert.equal(await page.locator('#sidebar nav[aria-label="学习空间"] a').count(),5);
     const freshContext=await browser.newContext();const freshPage=await freshContext.newPage();await freshPage.goto(new URL('/#practice',page.url()).href);await freshPage.waitForSelector('#quiz-filters');assert.equal(await freshPage.locator('h1').textContent(),'模拟题库训练');await freshContext.close();
@@ -22,12 +23,12 @@ try {
     if(process.env.SCREENSHOT_DIR){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:process.env.SCREENSHOT_DIR+'/ds-paper-review.png',fullPage:false});}
     const first=await select('intro-triangle'),bad=first.options.find(o=>!o.correct);
     await page.locator(`#practice-answer input[value="${bad.id}"]`).check();await page.locator('[data-action=quiz-grade]').click();
-    assert.equal((await stored('question-attempts')).length,1);assert.equal((await stored('question-wrongs')).length,1);
+    await drainRecords();assert.equal((await stored('question-attempts')).length,1);assert.equal((await stored('question-wrongs')).length,1);
     assert(await page.locator('[data-action=quiz-grade]').isDisabled());
     await page.locator('[data-action=quiz-reroll]').click();const changed=(await stored('practice-current')).question;assert.notEqual(changed.seed,first.seed);assert.notEqual(changed.stem,first.stem);
     await go('practice/wrong');await page.locator('[data-action=quiz-wrong-retry]').click();assert.equal((await stored('practice-current')).question.seed,first.seed);
     const right=first.options.find(o=>o.correct);await page.locator(`#practice-answer input[value="${right.id}"]`).check();await page.locator('[data-action=quiz-grade]').click();
-    assert.equal((await stored('question-wrongs'))[0].resolved,true);
+    await drainRecords();assert.equal((await stored('question-wrongs'))[0].resolved,true);
     const multi=await select('multi-01');await page.locator(`#practice-answer input[value="${multi.answer[0]}"]`).check();await page.locator('[data-action=quiz-grade]').click();
     assert.equal((await stored('practice-current')).result.score,1);assert.equal(await page.locator('.quiz-solution .option-analysis>li').count(),4);
     const fill=await select('fill-aoe');await page.locator('[name=fill-0]').fill(fill.answers[0].accepted[0]);await page.locator('[name=fill-1]').fill('-999');await page.locator('[data-action=quiz-grade]').click();assert.equal((await stored('practice-current')).result.score,1.5);
@@ -75,7 +76,7 @@ try {
     await page.locator('[data-action=quiz-exam-go][data-index="20"]').first().click();assert.equal(await page.locator('textarea').count(),0);await page.locator('[data-action=quiz-exam-offline]').click();await go('directory');await go('practice/exam');assert.equal((await stored('practice-exam')).questions[20].answer,'已在线下作答');assert.equal(await page.locator('.exam-question>.answer-details>summary').count(),1);
     await page.clock.fastForward(Math.max(1,deadline-Date.now()+2000));await page.waitForTimeout(50);assert.equal((await stored('practice-exam')).submitted,true);assert((await page.locator('#main').textContent()).includes('待自评 6 题'));
     await page.locator('details.exam-question').nth(16).locator('summary').first().click();await page.locator('[data-action=quiz-exam-self][data-index="16"][data-value="1"]').click();assert((await page.locator('#main').textContent()).includes('待自评 5 题'));
-    const attemptsBefore=(await stored('question-attempts')).length;await page.locator('details.exam-question').nth(16).locator('summary').first().click();await page.locator('[data-action=quiz-exam-self][data-index="16"][data-value="1"]').click();assert.equal((await stored('question-attempts')).length,attemptsBefore);
+    await drainRecords();const attemptsBefore=(await stored('question-attempts')).length;await page.locator('details.exam-question').nth(16).locator('summary').first().click();await page.locator('[data-action=quiz-exam-self][data-index="16"][data-value="1"]').click();await drainRecords();assert.equal((await stored('question-attempts')).length,attemptsBefore);
     if(process.env.SCREENSHOT_DIR){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:process.env.SCREENSHOT_DIR+'/ds-exam-report.png',fullPage:false});}
     await page.locator('[data-action=quiz-exam-new]').click();assert.equal((await stored('exam-history')).length,1);await page.locator('[data-action=quiz-exam-submit]').click();await go('practice/history');assert.equal(await page.locator('[data-action=quiz-exam-open]').count(),1);
     await page.locator('[data-action=quiz-exam-open]').click();assert((await page.locator('#main').textContent()).includes('待自评 5 题'));

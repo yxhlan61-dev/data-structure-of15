@@ -5,7 +5,25 @@ import { read,write } from '../storage.js';
 import { esc } from './dom.js';
 
 const safeArray=(key,max)=>{const value=read(key,[]);return Array.isArray(value)?value.slice(-max):[];};
-let attempts=safeArray('question-attempts',500),wrongs=safeArray('question-wrongs',150),history=safeArray('exam-history',5);
+let history=safeArray('exam-history',5);
+const attemptMemory=new Map(),wrongMemory=new Map();
+function currentRecords(storageKey,limit,key,time,memory){
+    const list=safeArray(storageKey,limit);
+    for(const entry of memory.values()){
+        const saved=list.find(item=>item[key]===entry[key]);
+        if(!saved||Number(saved[time])<=entry[time])upsert(list,key,entry);
+    }
+    return list.slice(-limit);
+}
+const attempts=()=>currentRecords('question-attempts',500,'attemptId','at',attemptMemory);
+const wrongs=()=>currentRecords('question-wrongs',150,'instanceId','updatedAt',wrongMemory);
+function persistRecords(storageKey,list,memory,changed,id){
+    if(save(storageKey,list)){memory.clear();return true;}
+    // Retain only the session's own changes; never write an old disk snapshot back.
+    for(const entry of changed)memory.set(entry[id],entry);
+    return false;
+}
+
 const savedFilters=read('practice-filters',{})||{};
 let filters={chapter:savedFilters.chapter||'',type:savedFilters.type||''};
 const directoryQuestions=new Map(),visited=new Map();
@@ -20,8 +38,68 @@ function saveCurrent(){if(current){current.scope=pool().some(t=>t.id===current.q
 function saveExam(){save('practice-exam',exam);}
 const compact=q=>({id:q.id,seed:q.seed});
 const nowId=()=>`${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
-function markWrong(q,answer,manual=false){const old=wrongs.find(w=>w.instanceId===q.instanceId);const entry={instanceId:q.instanceId,question:compact(q),answer,updatedAt:Date.now(),resolved:false,manual};if(old)Object.assign(old,entry);else wrongs.push(entry);wrongs=wrongs.slice(-150);save('question-wrongs',wrongs);}
-function record(q,answer,result,attemptId,mode){const item={attemptId,templateId:q.id,seed:q.seed,instanceId:q.instanceId,chapter:q.chapter,type:q.type,answer,score:result.score,max:result.max,correct:result.score===result.max,self:!!result.self,mode,at:Date.now()};const index=attempts.findIndex(a=>a.attemptId===attemptId);if(index>=0)attempts[index]=item;else attempts.push(item);attempts=attempts.slice(-500);save('question-attempts',attempts);if(!item.correct)markWrong(q,answer);else{const wrong=wrongs.find(w=>w.instanceId===q.instanceId);if(wrong){wrong.resolved=true;wrong.updatedAt=Date.now();save('question-wrongs',wrongs);}}}
+// All history/wrong-list mutations read current storage inside the same origin lock.
+function withRecordsLock(change,onError=error=>{message=error.message;refreshPage();}){
+    let entered=false;
+    const run=()=>{entered=true;return change();};
+    const locks=globalThis.navigator?.locks;
+    if(!locks?.request)return run();
+    return locks.request('ds-review:practice-records',run).catch(error=>{
+        if(entered)return onError(error);
+        try{return run();}catch(fallbackError){return onError(fallbackError);}
+    });
+}
+function upsert(list,key,item){
+    const index=list.findIndex(entry=>entry[key]===item[key]);
+    if(index<0)list.push(item);else list[index]=item;
+}
+function wrongEntry(q,answer,manual,at){
+    return {instanceId:q.instanceId,question:compact(q),answer,updatedAt:at,resolved:false,manual};
+}
+function updateWrong(q,answer,manual,at,list){
+    const old=list.find(w=>w.instanceId===q.instanceId);
+    if(old&&Number(old.updatedAt)>at)return false;
+    upsert(list,'instanceId',wrongEntry(q,answer,manual,at));
+    return true;
+}
+function markWrong(q,answer,manual=false){
+    const snapshot=structuredClone(answer),at=Date.now();
+    return withRecordsLock(()=>{
+        const list=wrongs();
+        if(updateWrong(q,snapshot,manual,at,list)&&!persistRecords('question-wrongs',list.slice(-150),wrongMemory,list.filter(w=>w.instanceId===q.instanceId),'instanceId'))refreshPage();
+    });
+}
+function attemptEntry(q,answer,result,attemptId,mode){
+    return {attemptId,templateId:q.id,seed:q.seed,instanceId:q.instanceId,chapter:q.chapter,type:q.type,answer:structuredClone(answer),score:result.score,max:result.max,correct:result.score===result.max,self:!!result.self,mode,at:Date.now()};
+}
+function recordEntries(entries,{insertOnly=false}={}){
+    if(!entries.length)return;
+    return withRecordsLock(()=>{
+        const savedAttempts=attempts(),savedWrongs=wrongs();
+        const changedAttempts=[],changedWrongs=new Map();
+        for(const {item,question} of entries){
+            const old=savedAttempts.find(a=>a.attemptId===item.attemptId);
+            if(old&&(insertOnly||Number(old.at)>item.at))continue;
+            upsert(savedAttempts,'attemptId',item);changedAttempts.push(item);
+            if(!item.correct){
+                if(updateWrong(question,item.answer,false,item.at,savedWrongs))changedWrongs.set(item.instanceId,savedWrongs.find(w=>w.instanceId===item.instanceId));
+            }
+            else {
+                const wrong=savedWrongs.find(w=>w.instanceId===item.instanceId);
+                if(wrong&&Number(wrong.updatedAt)<=item.at){
+                    const resolved={...wrong,resolved:true,updatedAt:item.at};
+                    upsert(savedWrongs,'instanceId',resolved);changedWrongs.set(item.instanceId,resolved);
+                }
+            }
+        }
+        const saved=persistRecords('question-attempts',savedAttempts.slice(-500),attemptMemory,changedAttempts,'attemptId');
+        const savedWrong=!changedWrongs.size||persistRecords('question-wrongs',savedWrongs.slice(-150),wrongMemory,changedWrongs.values(),'instanceId');
+        if(!saved||!savedWrong)refreshPage();
+    });
+}
+function record(q,answer,result,attemptId,mode){
+    return recordEntries([{item:attemptEntry(q,answer,result,attemptId,mode),question:q}]);
+}
 function select(q){current={question:q,answer:isObjective(q)?[]:'',attemptId:nowId(),revealed:false,result:null};saveCurrent();}
 const typeOrder=['single','multiple','fill','calculation','programming'];
 function ordered(items){return [...items].sort((a,b)=>a.chapter.localeCompare(b.chapter)||typeOrder.indexOf(a.type)-typeOrder.indexOf(b.type)||Number(a.parametric)-Number(b.parametric));}
@@ -43,7 +121,7 @@ function feedback(q,result){if(!result)return '';return `<div class="quiz-feedba
 function solution(q){return `<section class="quiz-solution"><h2>参考答案与解题过程</h2>${q.options?`<p>应选：${q.answer.join('、')}</p>`:q.answers?`<p>${q.answers.map(f=>`${esc(f.label)}：${esc(f.accepted[0])}`).join('；')}</p>`:''}${q.solution}</section>`;}
 function openSolution(q){return `<details class="answer-details"><summary>核对参考答案与完整过程</summary>${solution(q)}</details>`;}
 function selfButtons(action,index=''){return `<div class="actions"><span>自行核对后记分：</span>${[[1,'完全掌握'],[0.5,'部分掌握（半分）'],[0,'未掌握']].map(([value,label])=>`<button type="button" class="secondary" data-action="${action}" data-value="${value}" data-index="${index}">${label}</button>`).join('')}</div>`;}
-export function practiceStats(){const graded=attempts.length,correct=attempts.filter(a=>a.correct).length,pending=wrongs.filter(w=>!w.resolved).length;return {graded,correct,pending,rate:graded?Math.round(correct/graded*100):0};}
+export function practiceStats(){const records=attempts(),graded=records.length,correct=records.filter(a=>a.correct).length,pending=wrongs().filter(w=>!w.resolved).length;return {graded,correct,pending,rate:graded?Math.round(correct/graded*100):0};}
 function statistics(){const s=practiceStats();return `<div class="quiz-statistics"><span>已评 ${s.graded} 次</span><span>全对率 ${s.rate}%</span><span>待复习 ${s.pending} 个变式</span><small>含主观题自评；保留最近 500 次作答</small></div>`;}
 function indexPage(route){
     if(route.topicId&&allTopics.some(t=>t.id===route.topicId)){filters={chapter:route.topicId.slice(2,4),type:''};save('practice-filters',filters);}
@@ -78,9 +156,13 @@ export function restorePracticePosition(route){
     window.scrollTo({top:Math.max(0,window.scrollY+target.getBoundingClientRect().top-90),behavior:'instant'});
     return true;
 }
-export function questionWrongSection(){const items=wrongs.filter(w=>{try{const q=restoreQuestion(w.question);return (!wrongFilters.chapter||q.chapter===wrongFilters.chapter)&&(!wrongFilters.type||q.type===wrongFilters.type)&&(wrongFilters.status==='all'||(wrongFilters.status==='resolved'?w.resolved:!w.resolved));}catch{return false;}});return `<section class="quiz-wrongs"><div class="section-head"><h2>题目错题本</h2><span>${items.length} 个变式</span></div><p>重练保留当时数字与种子；“换一组数字”才生成新变式。移出待复习不会删除答题历史。</p><form id="quiz-wrong-filters" class="quiz-filter"><label>章节<select name="chapter">${chapterOptions(wrongFilters.chapter)}</select></label><label>题型<select name="type">${typeOptions(wrongFilters.type)}</select></label><label>状态<select name="status">${[['pending','待复习'],['resolved','已掌握'],['all','全部']].map(([k,v])=>option(k,v,wrongFilters.status)).join('')}</select></label><button type="button" class="secondary" data-action="quiz-wrong-filter">筛选</button></form><div class="topic-grid">${items.map(w=>{const q=restoreQuestion(w.question);return `<article class="panel note"><div class="question-meta"><span>${typeNames[q.type]}</span><span>第 ${q.chapter} 章</span><span>${w.resolved?'已掌握':'待复习'}</span></div><h3>${esc(q.title)}</h3><p>${esc(q.stem.replace(/<[^>]*>/g,' ').slice(0,160))}</p><small>种子 ${q.seed} · ${new Date(w.updatedAt).toLocaleString('zh-CN')}</small><div class="actions"><button class="primary" data-action="quiz-wrong-retry" data-id="${esc(w.instanceId)}">原数据重练</button><button class="secondary" data-action="quiz-master" data-id="${esc(w.instanceId)}">${w.resolved?'重新加入待复习':'标记已掌握 / 移出'}</button></div></article>`;}).join('')||'<p>当前没有符合条件的错题。客观题未满分时自动加入，主观题可手动加入或按自评结果记录。</p>'}</div></section>`;}
-function historyPage(){return heading('答题记录','记录题目、种子、作答时间、得分和累计作答次数；主观题明确标注自评。')+statistics()+`<div class="table-scroll"><table class="mini-table"><thead><tr><th>时间</th><th>题目</th><th>题型</th><th>次数</th><th>得分</th><th>方式</th></tr></thead><tbody>${[...attempts].reverse().map(a=>{const t=practiceTemplates.find(t=>t.id===a.templateId);return `<tr><td>${esc(new Date(a.at).toLocaleString('zh-CN'))}</td><td>${esc(t?.title||a.templateId)}<small>种子 ${a.seed}</small></td><td>${typeNames[a.type]||''}</td><td>${attempts.filter(x=>x.templateId===a.templateId).length}</td><td>${a.score}/${a.max}</td><td>${a.self?'用户自评':'自动判分'} · ${a.mode==='exam'?'模拟考试':'训练'}</td></tr>`;}).join('')}</tbody></table></div>${!attempts.length?'<p>还没有已评分作答。</p>':''}<h2>已归档模拟卷</h2>${history.map((ex,i)=>{const totals=examTotals(restoreExam(ex));return `<article class="panel note"><p>组卷种子 ${Number(ex.seed)} · 已确认 ${totals.total}/100 · 待自评 ${totals.pending} 题</p><button class="secondary" data-action="quiz-exam-open" data-index="${i}">查看本卷与解答</button></article>`;}).join('')||'<p>生成下一套模拟卷后，最近五套会保存在这里。</p>'}`;}
-function recordExam(){for(const item of exam.questions)if(item.result)record(item.question,item.answer,item.result,`${exam.id}:${item.question.instanceId}`,'exam');}
+export function questionWrongSection(){const items=wrongs().filter(w=>{try{const q=restoreQuestion(w.question);return (!wrongFilters.chapter||q.chapter===wrongFilters.chapter)&&(!wrongFilters.type||q.type===wrongFilters.type)&&(wrongFilters.status==='all'||(wrongFilters.status==='resolved'?w.resolved:!w.resolved));}catch{return false;}});return `<section class="quiz-wrongs"><div class="section-head"><h2>题目错题本</h2><span>${items.length} 个变式</span></div><p>重练保留当时数字与种子；“换一组数字”才生成新变式。移出待复习不会删除答题历史。</p><form id="quiz-wrong-filters" class="quiz-filter"><label>章节<select name="chapter">${chapterOptions(wrongFilters.chapter)}</select></label><label>题型<select name="type">${typeOptions(wrongFilters.type)}</select></label><label>状态<select name="status">${[['pending','待复习'],['resolved','已掌握'],['all','全部']].map(([k,v])=>option(k,v,wrongFilters.status)).join('')}</select></label><button type="button" class="secondary" data-action="quiz-wrong-filter">筛选</button></form><div class="topic-grid">${items.map(w=>{const q=restoreQuestion(w.question);return `<article class="panel note"><div class="question-meta"><span>${typeNames[q.type]}</span><span>第 ${q.chapter} 章</span><span>${w.resolved?'已掌握':'待复习'}</span></div><h3>${esc(q.title)}</h3><p>${esc(q.stem.replace(/<[^>]*>/g,' ').slice(0,160))}</p><small>种子 ${q.seed} · ${new Date(w.updatedAt).toLocaleString('zh-CN')}</small><div class="actions"><button class="primary" data-action="quiz-wrong-retry" data-id="${esc(w.instanceId)}">原数据重练</button><button class="secondary" data-action="quiz-master" data-id="${esc(w.instanceId)}" data-resolved="${!w.resolved}">${w.resolved?'重新加入待复习':'标记已掌握 / 移出'}</button></div></article>`;}).join('')||'<p>当前没有符合条件的错题。客观题未满分时自动加入，主观题可手动加入或按自评结果记录。</p>'}</div></section>`;}
+function historyPage(){const records=attempts(),counts=new Map();for(const record of records)counts.set(record.templateId,(counts.get(record.templateId)||0)+1);return heading('答题记录','记录题目、种子、作答时间、得分和累计作答次数；主观题明确标注自评。')+statistics()+`<div class="table-scroll"><table class="mini-table"><thead><tr><th>时间</th><th>题目</th><th>题型</th><th>次数</th><th>得分</th><th>方式</th></tr></thead><tbody>${records.reverse().map(a=>{const t=practiceTemplates.find(t=>t.id===a.templateId);return `<tr><td>${esc(new Date(a.at).toLocaleString('zh-CN'))}</td><td>${esc(t?.title||a.templateId)}<small>种子 ${a.seed}</small></td><td>${typeNames[a.type]||''}</td><td>${counts.get(a.templateId)}</td><td>${a.score}/${a.max}</td><td>${a.self?'用户自评':'自动判分'} · ${a.mode==='exam'?'模拟考试':'训练'}</td></tr>`;}).join('')}</tbody></table></div>${!records.length?'<p>还没有已评分作答。</p>':''}<h2>已归档模拟卷</h2>${history.map((ex,i)=>{const totals=examTotals(restoreExam(ex));return `<article class="panel note"><p>组卷种子 ${Number(ex.seed)} · 已确认 ${totals.total}/100 · 待自评 ${totals.pending} 题</p><button class="secondary" data-action="quiz-exam-open" data-index="${i}">查看本卷与解答</button></article>`;}).join('')||'<p>生成下一套模拟卷后，最近五套会保存在这里。</p>'}`;}
+function recordExam(){
+    return recordEntries(exam.questions.filter(item=>item.result).map(item=>({
+        question:item.question,item:attemptEntry(item.question,item.answer,item.result,`${exam.id}:${item.question.instanceId}`,'exam')
+    })),{insertOnly:true});
+}
 function finishExam(){if(!exam||exam.submitted)return;submitExam(exam,Math.min(Date.now(),exam.deadline));recordExam();saveExam();}
 function examPage(){if(exam&&!exam.submitted&&Date.now()>=exam.deadline)finishExam();if(!exam)return heading('模拟考试','参考 2022 年分值结构组卷，随机生成题目和数字，120 分钟倒计时；主观题交卷后自行核对。')+`<section class="panel note"><h2>100 分模拟卷</h2><p>选择 8 题共 24 分；填空 8 题共 26 分；计算 4 题共 25 分；编程 2 题共 25 分。客观题共 50 分自动判分，主观题共 50 分自评。</p><p>选择题含单选和多选；训练多选规则同样适用。此卷为自编/改编模拟题，不是新增历年真题。</p><button class="primary" data-action="quiz-exam-start">随机组卷并开始计时</button></section>`;
     if(exam.submitted){const totals=examTotals(exam);return heading('模拟考试成绩','客观题自动判分；请展开计算/编程题，对照过程后逐题自评。主观题未核对前不视为最终总分。')+`<section class="panel note"><h2>${totals.pending?'已确认得分':'最终得分'}：${totals.total} / 100</h2><p>客观题 ${totals.objective}/50；主观题已评 ${totals.subjective}/50；待自评 ${totals.pending} 题。</p><p>用时 ${Math.max(0,Math.round(((exam.finishedAt||Date.now())-exam.startedAt)/60000))} 分钟 · 组卷种子 ${exam.seed}</p><button class="secondary" data-action="quiz-exam-new">保存本卷并生成新卷</button><a class="secondary" href="#practice/wrong">重练错题</a></section>${exam.questions.map((item,i)=>{const q=item.question;return `<details class="panel article exam-question"><summary>第 ${i+1} 题 · ${typeNames[q.type]} · ${esc(q.title)} · ${item.result?item.result.score+'/'+item.points:'待自评'}</summary>${q.stem}${isObjective(q)?`<p>你的作答：</p><pre class="user-answer">${esc(Array.isArray(item.answer)?item.answer.join('；'):item.answer||'未作答')}</pre>`:'<p>请对照你在线下完成的答案自行核对。</p>'}${feedback(q,item.result)}${solution(q)}${isObjective(q)?'':selfButtons('quiz-exam-self',i)}</details>`;}).join('')}`;}
@@ -107,7 +189,7 @@ export function savePracticeInput(event){
     }else saveExam();
 }
 function goto(hash,refresh){if(location.hash===hash)refresh();else location.hash=hash;}
-async function importBackup(refresh){const input=document.getElementById('quiz-import-file'),file=input.files[0];if(!file||!document.getElementById('quiz-import-confirm').checked)throw new Error('请选择备份文件并勾选覆盖确认。');if(file.size>6000000)throw new Error('备份文件超过 6 MB。');const parsed=JSON.parse(await file.text());if(parsed.app!=='ds-review'||parsed.version!==1||!parsed.data||typeof parsed.data!=='object')throw new Error('不是受支持的本站备份格式。');const data=parsed.data;if(!Array.isArray(data.learned)||!data.learned.every(x=>typeof x==='string')||!Array.isArray(data.mistakes))throw new Error('学习记录格式无效。');if(data['practice-current'])loadCurrent(data['practice-current']);if(data['practice-exam'])restoreExam(data['practice-exam']);for(const key of ['question-attempts','question-wrongs','exam-history'])if(data[key]!=null&&!Array.isArray(data[key]))throw new Error('答题记录格式无效。');data['question-wrongs']=(data['question-wrongs']||[]).slice(-150).map(w=>{const q=restoreQuestion(w.question);return {instanceId:q.instanceId,question:compact(q),answer:w.answer,updatedAt:Number(w.updatedAt)||Date.now(),resolved:!!w.resolved,manual:!!w.manual};});for(const ex of data['exam-history']||[])restoreExam(ex);for(const a of data['question-attempts']||[]){restoreQuestion({id:a.templateId,seed:a.seed});if(!Number.isFinite(a.score)||!Number.isFinite(a.max)||a.score<0||a.score>a.max||a.max>100)throw new Error('答题分数无效。');}const previous=Object.fromEntries(backupKeys.map(k=>[k,localStorage.getItem('ds-review:'+k)]));try{for(const key of backupKeys)if(Object.hasOwn(data,key)&&!write(key,data[key]))throw new Error('存储空间不足，导入失败。');}catch(error){for(const [key,value] of Object.entries(previous)){if(value===null)localStorage.removeItem('ds-review:'+key);else localStorage.setItem('ds-review:'+key,value);}throw error;}location.hash='practice/data';location.reload();}
+async function importBackup(refresh){const input=document.getElementById('quiz-import-file'),file=input.files[0];if(!file||!document.getElementById('quiz-import-confirm').checked)throw new Error('请选择备份文件并勾选覆盖确认。');if(file.size>6000000)throw new Error('备份文件超过 6 MB。');const parsed=JSON.parse(await file.text());if(parsed.app!=='ds-review'||parsed.version!==1||!parsed.data||typeof parsed.data!=='object')throw new Error('不是受支持的本站备份格式。');const data=parsed.data;if(!Array.isArray(data.learned)||!data.learned.every(x=>typeof x==='string')||!Array.isArray(data.mistakes))throw new Error('学习记录格式无效。');if(data['practice-current'])loadCurrent(data['practice-current']);if(data['practice-exam'])restoreExam(data['practice-exam']);for(const key of ['question-attempts','question-wrongs','exam-history'])if(data[key]!=null&&!Array.isArray(data[key]))throw new Error('答题记录格式无效。');data['question-wrongs']=(data['question-wrongs']||[]).slice(-150).map(w=>{const q=restoreQuestion(w.question);return {instanceId:q.instanceId,question:compact(q),answer:w.answer,updatedAt:Number(w.updatedAt)||Date.now(),resolved:!!w.resolved,manual:!!w.manual};});for(const ex of data['exam-history']||[])restoreExam(ex);for(const a of data['question-attempts']||[]){restoreQuestion({id:a.templateId,seed:a.seed});if(!Number.isFinite(a.score)||!Number.isFinite(a.max)||a.score<0||a.score>a.max||a.max>100)throw new Error('答题分数无效。');}await withRecordsLock(()=>{const previous=Object.fromEntries(backupKeys.map(k=>[k,localStorage.getItem('ds-review:'+k)]));try{for(const key of backupKeys)if(Object.hasOwn(data,key)&&!write(key,data[key]))throw new Error('存储空间不足，导入失败。');}catch(error){for(const [key,value] of Object.entries(previous)){if(value===null)localStorage.removeItem('ds-review:'+key);else localStorage.setItem('ds-review:'+key,value);}throw error;}},error=>{throw error;});location.hash='practice/data';location.reload();}
 export function handlePracticeAction(action,control,refresh){if(!action.startsWith('quiz-'))return false;message='';refreshPage=refresh;try{
     if(action==='quiz-filter'){filters=Object.fromEntries(new FormData(document.getElementById('quiz-filters')));save('practice-filters',filters);goto('#practice/catalog',refresh);}
     if(action==='quiz-filter-reset'){filters={chapter:'',type:''};save('practice-filters',filters);goto('#practice/catalog',refresh);}
@@ -121,15 +203,15 @@ export function handlePracticeAction(action,control,refresh){if(!action.startsWi
     if(action==='quiz-reroll'&&current&&current.question.parametric){select(pickQuestion(current.question.id,current.question));refresh();}
     if((action==='quiz-next'||action==='quiz-prev')&&current){const items=navigationItems(),index=items.findIndex(t=>t.id===current.question.id),target=items[index+(action==='quiz-prev'?-1:1)];if(target){visited.set(current.question.id,current);const cached=visited.get(target.id);if(cached){current=cached;saveCurrent();}else select(directoryQuestions.get(target.id)||pickQuestion(target.id));goto('#practice/question',refresh);}}
     if(action==='quiz-wrong-filter'){wrongFilters=Object.fromEntries(new FormData(document.getElementById('quiz-wrong-filters')));refresh();}
-    if(action==='quiz-wrong-retry'){const w=wrongs.find(w=>w.instanceId===control.dataset.id);if(!w)throw new Error('错题不存在。');select(restoreQuestion(w.question));goto('#practice/question',refresh);}
-    if(action==='quiz-master'){const w=wrongs.find(w=>w.instanceId===control.dataset.id);if(w){w.resolved=!w.resolved;save('question-wrongs',wrongs);refresh();}}
+    if(action==='quiz-wrong-retry'){const w=wrongs().find(w=>w.instanceId===control.dataset.id);if(!w)throw new Error('错题不存在。');select(restoreQuestion(w.question));goto('#practice/question',refresh);}
+    if(action==='quiz-master'){const {id,resolved}=control.dataset;withRecordsLock(()=>{const list=wrongs(),w=list.find(w=>w.instanceId===id);if(w){const next={...w,resolved:resolved==='true',updatedAt:Date.now()};upsert(list,'instanceId',next);persistRecords('question-wrongs',list,wrongMemory,[next],'instanceId');refresh();}});}
     if(action==='quiz-exam-start'||action==='quiz-exam-new'){if(exam&&!exam.submitted){goto('#practice/exam',refresh);return true;}if(exam){history.push(exam);history=history.slice(-5);save('exam-history',history);}exam=createExam(crypto.getRandomValues(new Uint32Array(1))[0]);saveExam();goto('#practice/exam',refresh);}
     if(action==='quiz-exam-open'){if(exam&&!exam.submitted)throw new Error('请先完成当前模拟考试，再查看归档卷。');const index=Number(control.dataset.index),archived=history[index];if(!archived)throw new Error('归档卷不存在。');history.splice(index,1);if(exam)history.push(exam);exam=restoreExam(archived);save('exam-history',history);saveExam();goto('#practice/exam',refresh);}
     if(action==='quiz-exam-go'&&exam&&!exam.submitted){exam.index=Math.max(0,Math.min(21,Number(control.dataset.index)||0));saveExam();refresh();}
     if(action==='quiz-exam-offline'&&exam&&!exam.submitted){exam.questions[exam.index].answer='已在线下作答';saveExam();refresh();}
     if(action==='quiz-exam-submit'){finishExam();refresh();}
     if(action==='quiz-exam-self'&&exam?.submitted){const item=exam.questions[Number(control.dataset.index)],fraction=Number(control.dataset.value);if(!item||isObjective(item.question)||![0,0.5,1].includes(fraction))throw new Error('自评分无效。');item.result={score:item.points*fraction,max:item.points,correct:fraction===1,self:true};record(item.question,item.answer,item.result,`${exam.id}:${item.question.instanceId}`,'exam');saveExam();refresh();}
-    if(action==='quiz-export'){const data=Object.fromEntries(backupKeys.map(k=>[k,read(k,['learned','mistakes','question-attempts','question-wrongs','exam-history'].includes(k)?[]:null)]));const blob=new Blob([JSON.stringify({app:'ds-review',version:1,exportedAt:new Date().toISOString(),data},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ds-review-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message='备份文件已生成，请保存到你的设备。';refresh();}
+    if(action==='quiz-export'){const data=Object.fromEntries(backupKeys.map(k=>[k,read(k,['learned','mistakes','question-attempts','question-wrongs','exam-history'].includes(k)?[]:null)]));data['question-attempts']=attempts();data['question-wrongs']=wrongs();const blob=new Blob([JSON.stringify({app:'ds-review',version:1,exportedAt:new Date().toISOString(),data},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ds-review-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message='备份文件已生成，请保存到你的设备。';refresh();}
     if(action==='quiz-import')importBackup(refresh).catch(error=>{message='导入失败：'+error.message;refresh();});
-    if(action==='quiz-reset'){if(!document.getElementById('quiz-reset-confirm').checked)throw new Error('请先勾选清除记录确认。');for(const key of Object.keys(localStorage))if(key.startsWith('ds-review:'))localStorage.removeItem(key);location.hash='directory';location.reload();}
+    if(action==='quiz-reset'){if(!document.getElementById('quiz-reset-confirm').checked)throw new Error('请先勾选清除记录确认。');withRecordsLock(()=>{for(const key of Object.keys(localStorage))if(key.startsWith('ds-review:'))localStorage.removeItem(key);location.hash='directory';location.reload();});}
 }catch(error){message=error.message;refresh();}return true;}

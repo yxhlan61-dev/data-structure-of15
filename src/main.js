@@ -157,3 +157,9 @@ window.addEventListener('hashchange',()=>{
     byId('main').focus({preventScroll:true});
 });
 renderRoute({scroll:false});
+
+// Refresh only record views; never rebuild an answer form on another tab's save.
+window.addEventListener('storage',event=>{
+    if(event.storageArea!==localStorage||![null,'ds-review:question-attempts','ds-review:question-wrongs'].includes(event.key))return;
+    if(route.kind==='mistakes'||route.kind==='practice'&&['wrong','history'].includes(route.view))renderRoute({scroll:false});
+});
